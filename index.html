@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#0f0f1a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="description" content="Calendario de reservas de apartamento — gestión visual de disponibilidad y ocupación mensual">
+  <title>Reservas — Calendario</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+  <div class="app-container">
+
+    <!-- ═══ CABECERA DEL MES ═══ -->
+    <header class="month-header">
+      <button class="nav-btn" id="btn-prev" aria-label="Mes anterior">
+        <span class="material-symbols-rounded">chevron_left</span>
+      </button>
+
+      <div class="month-title">
+        <h1 id="month-name">—</h1>
+        <div class="year-label" id="year-label">—</div>
+      </div>
+
+      <button class="nav-btn" id="btn-next" aria-label="Mes siguiente">
+        <span class="material-symbols-rounded">chevron_right</span>
+      </button>
+    </header>
+
+    <!-- ═══ RESUMEN DEL MES ═══ -->
+    <div class="summary-bar">
+      <div class="summary-chip">
+        <div class="chip-icon ocupacion">📊</div>
+        <div class="chip-data">
+          <span class="chip-value" id="val-ocupacion">—</span>
+          <span class="chip-label">Ocupación</span>
+        </div>
+      </div>
+      <div class="summary-chip">
+        <div class="chip-icon ingresos">💰</div>
+        <div class="chip-data">
+          <span class="chip-value" id="val-ingresos">—</span>
+          <span class="chip-label">Ingresos</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- ═══ CALENDARIO ═══ -->
+    <div class="calendar-card">
+      <!-- Cabecera de días de la semana -->
+      <div class="weekday-header">
+        <span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span>
+      </div>
+
+      <!-- Cuadrícula de días (inyectada por JS) -->
+      <div class="calendar-grid" id="calendar-grid"></div>
+    </div>
+
+  </div><!-- /.app-container -->
+
+  <!-- ═══ OVERLAY ═══ -->
+  <div class="overlay" id="overlay"></div>
+
+  <!-- ═══ BOTTOM SHEET — Detalle de Reserva ═══ -->
+  <div class="bottom-sheet" id="bottom-sheet">
+    <div class="sheet-handle"></div>
+
+    <div class="sheet-title">
+      🏠 Reserva
+      <span class="res-id" id="sheet-res-id">—</span>
+    </div>
+
+    <div class="sheet-details">
+      <!-- Cliente -->
+      <div class="detail-row">
+        <div class="detail-icon client">👤</div>
+        <div class="detail-info">
+          <span class="detail-label">Huésped</span>
+          <span class="detail-value" id="sheet-client">—</span>
+        </div>
+      </div>
+
+      <!-- Fechas -->
+      <div class="detail-row">
+        <div class="detail-icon dates">📅</div>
+        <div class="detail-info">
+          <span class="detail-label">Estancia</span>
+          <span class="detail-value" id="sheet-dates">—</span>
+          <span class="detail-sub" id="sheet-dates-sub">—</span>
+        </div>
+      </div>
+
+      <!-- Huéspedes -->
+      <div class="detail-row">
+        <div class="detail-icon guests">👥</div>
+        <div class="detail-info">
+          <span class="detail-label">Huéspedes</span>
+          <span class="detail-value" id="sheet-guests">—</span>
+        </div>
+      </div>
+
+      <!-- Precio -->
+      <div class="detail-row">
+        <div class="detail-icon price">💶</div>
+        <div class="detail-info">
+          <span class="detail-label">Precio total</span>
+          <span class="detail-value" id="sheet-price">—</span>
+          <span class="detail-sub" id="sheet-price-sub">—</span>
+        </div>
+      </div>
+
+      <!-- Notas (solo si hay) -->
+      <div class="detail-row" id="sheet-notes-row" style="display:none">
+        <div class="detail-icon client">📝</div>
+        <div class="detail-info">
+          <span class="detail-label">Notas</span>
+          <span class="detail-value" id="sheet-notes">—</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Scripts — orden de carga: modelos → lógica → supabase → datos → UI -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+  <script src="models.js"></script>
+  <script src="calendar.js"></script>
+  <script src="supabaseClient.js"></script>
+  <script src="dataService.js"></script>
+  <script src="ui.js"></script>
+
+</body>
+</html>

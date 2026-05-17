@@ -1,0 +1,12 @@
+# IDE / Editor
+.vscode/
+.idea/
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+
+# Archivos de Sistema
+Thumbs.db
+.DS_Store
+*.log

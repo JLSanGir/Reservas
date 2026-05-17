@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Reservas — Test Modelos</title>
+  <style>
+    body { font-family: 'Courier New', monospace; background: #1a1a2e; color: #e0e0e0; padding: 20px; }
+    h1 { color: #00d4aa; }
+    pre { white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <h1>🧪 Test de Modelos y Calendario</h1>
+  <pre id="output"></pre>
+
+  <!-- Cargar modelos primero, luego calendario -->
+  <script src="models.js"></script>
+  <script src="calendar.js"></script>
+  <script>
+    // Redirigir console.log al DOM para visualizar
+    const output = document.getElementById('output');
+    const _log = console.log;
+    console.log = (...args) => {
+      _log(...args);
+      output.textContent += args.join(' ') + '\n';
+    };
+
+    // Ejecutar demo
+    const resultado = demo();
+
+    // Mostrar estructura de un día alquilado y uno disponible
+    console.log('\n── Estructura DiaCalendario (Alquilado) ──');
+    const diaAlquilado = resultado.dias.find(d => d.estado === EstadoDia.ALQUILADO);
+    if (diaAlquilado) console.log(JSON.stringify(diaAlquilado, null, 2));
+
+    console.log('\n── Estructura DiaCalendario (Disponible) ──');
+    const diaDisponible = resultado.dias.find(d => d.estado === EstadoDia.DISPONIBLE && !d.esPadding);
+    if (diaDisponible) console.log(JSON.stringify(diaDisponible, null, 2));
+
+    console.log('\n── Resumen del Mes ──');
+    console.log(JSON.stringify(resultado.resumen, null, 2));
+  </script>
+</body>
+</html>

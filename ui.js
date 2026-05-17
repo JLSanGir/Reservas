@@ -1,0 +1,379 @@
+// ============================================================
+// RESERVAS — UI: Renderizado del Calendario
+// Componente reactivo, mobile-first, con BottomSheet
+// Soporta Supabase (producción) y datos demo (desarrollo)
+// ============================================================
+
+// ------------------------------------------------------------
+// ESTADO GLOBAL DE LA APP
+// ------------------------------------------------------------
+const AppState = {
+  anio: new Date().getFullYear(),
+  mes: new Date().getMonth() + 1,  // 1-12
+  mesActual: null,                  // MesCalendario generado
+  reservas: [],                     // Array de Reserva (mes actual)
+  preciosCustom: new Map(),
+  cargando: false,                  // Flag de loading
+  usarSupabase: false,              // Se activa si la config es válida
+};
+
+// Mapa rápido de reservas por ID para el BottomSheet
+const reservasPorId = new Map();
+
+// ------------------------------------------------------------
+// DATOS DE DEMO
+// ------------------------------------------------------------
+// ------------------------------------------------------------
+// DETECCIÓN DE MODO: Supabase vs Demo
+// ------------------------------------------------------------
+function detectarModo() {
+  // Comprobar si supabaseClient.js cargó y tiene URL real
+  if (typeof SUPABASE_URL !== 'undefined' &&
+      !SUPABASE_URL.includes('TU_PROYECTO')) {
+    AppState.usarSupabase = true;
+    console.log('🔗 Modo: Supabase (producción)');
+  } else {
+    AppState.usarSupabase = false;
+    console.log('🧪 Modo: Demo (datos locales)');
+  }
+}
+
+// ------------------------------------------------------------
+// CARGA DE DATOS: Supabase o Demo
+// ------------------------------------------------------------
+
+/**
+ * Obtiene reservas y precios del mes actual.
+ * Si Supabase está configurado, consulta la BD.
+ * Si no, usa datos demo locales.
+ */
+async function cargarDatosMes() {
+  AppState.cargando = true;
+  mostrarLoading(true);
+
+  try {
+    if (AppState.usarSupabase) {
+      // ── Supabase ──
+      const { reservas, precios } = await obtenerDatosMes(AppState.mes, AppState.anio);
+      AppState.reservas      = reservas;
+      AppState.preciosCustom = precios;
+    } else {
+      // ── Demo ──
+      cargarDatosDemo();
+    }
+
+    // Indexar reservas por ID para BottomSheet
+    reservasPorId.clear();
+    for (const r of AppState.reservas) {
+      reservasPorId.set(r.id, r);
+    }
+  } catch (err) {
+    console.error('❌ Error cargando datos:', err);
+  } finally {
+    AppState.cargando = false;
+    mostrarLoading(false);
+  }
+}
+
+/**
+ * Muestra/oculta indicador de carga en la cuadrícula.
+ */
+function mostrarLoading(visible) {
+  if (!DOM.calendarGrid) return;
+  if (visible) {
+    DOM.calendarGrid.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 40px 0;
+                  color: var(--text-muted); font-size: 0.85rem;">
+        <div style="margin-bottom: 8px; font-size: 1.2rem;">⏳</div>
+        Cargando...
+      </div>`;
+  }
+}
+
+// ------------------------------------------------------------
+// DATOS DE DEMO (fallback cuando no hay Supabase)
+// ------------------------------------------------------------
+function cargarDatosDemo() {
+  // Reservas globales (todos los meses) — se filtran en generarMes()
+  AppState.reservas = [
+    crearReserva({
+      id: 'res-001',
+      fechaInicio: '2026-05-03',
+      fechaFin:    '2026-05-07',
+      huespedes:   4,
+      precioTotal: 400,
+      nombreCliente: 'García López',
+      telefono: '+34 612 345 678',
+      notas: 'Check-in tardío (22:00)',
+    }),
+    crearReserva({
+      id: 'res-002',
+      fechaInicio: '2026-05-15',
+      fechaFin:    '2026-05-20',
+      huespedes:   2,
+      precioTotal: 500,
+      nombreCliente: 'Martín Ruiz',
+      telefono: '+34 698 765 432',
+    }),
+    crearReserva({
+      id: 'res-003',
+      fechaInicio: '2026-05-28',
+      fechaFin:    '2026-06-02',
+      huespedes:   3,
+      precioTotal: 600,
+      nombreCliente: 'Fernández Díaz',
+      telefono: '+34 654 321 987',
+      notas: 'Necesitan cuna',
+    }),
+    crearReserva({
+      id: 'res-004',
+      fechaInicio: '2026-06-10',
+      fechaFin:    '2026-06-15',
+      huespedes:   5,
+      precioTotal: 750,
+      nombreCliente: 'Rodríguez Sanz',
+    }),
+    crearReserva({
+      id: 'res-005',
+      fechaInicio: '2026-06-22',
+      fechaFin:    '2026-06-28',
+      huespedes:   2,
+      precioTotal: 680,
+      nombreCliente: 'López Herrera',
+      telefono: '+34 611 222 333',
+    }),
+    crearReserva({
+      id: 'res-006',
+      fechaInicio: '2026-04-18',
+      fechaFin:    '2026-04-23',
+      huespedes:   4,
+      precioTotal: 450,
+      nombreCliente: 'Navarro Gil',
+    }),
+  ];
+
+  AppState.preciosCustom = new Map([
+    ['2026-05-01', 95],
+    ['2026-05-02', 95],
+  ]);
+}
+
+// ------------------------------------------------------------
+// REFS AL DOM
+// ------------------------------------------------------------
+const $ = (sel) => document.querySelector(sel);
+const DOM = {};
+
+function cachearDOM() {
+  DOM.monthName    = $('#month-name');
+  DOM.yearLabel    = $('#year-label');
+  DOM.btnPrev      = $('#btn-prev');
+  DOM.btnNext      = $('#btn-next');
+  DOM.ocupacion    = $('#val-ocupacion');
+  DOM.ingresos     = $('#val-ingresos');
+  DOM.calendarGrid = $('#calendar-grid');
+  DOM.overlay      = $('#overlay');
+  DOM.bottomSheet  = $('#bottom-sheet');
+  DOM.sheetResId   = $('#sheet-res-id');
+  DOM.sheetClient  = $('#sheet-client');
+  DOM.sheetDates   = $('#sheet-dates');
+  DOM.sheetDatesSub = $('#sheet-dates-sub');
+  DOM.sheetGuests  = $('#sheet-guests');
+  DOM.sheetPrice   = $('#sheet-price');
+  DOM.sheetPriceSub = $('#sheet-price-sub');
+  DOM.sheetNotes   = $('#sheet-notes');
+  DOM.sheetNotesRow = $('#sheet-notes-row');
+}
+
+// ------------------------------------------------------------
+// RENDERIZADO
+// ------------------------------------------------------------
+
+/**
+ * Actualiza toda la vista del mes actual.
+ * @param {'left'|'right'|null} direction — dirección de la animación
+ */
+async function renderMes(direction = null) {
+  // Cargar datos del mes desde Supabase o demo
+  await cargarDatosMes();
+
+  // Generar estructura del mes con los datos cargados
+  AppState.mesActual = generarMes(
+    AppState.anio,
+    AppState.mes,
+    AppState.reservas,
+    AppState.preciosCustom,
+  );
+
+  const m = AppState.mesActual;
+
+  // Cabecera
+  DOM.monthName.textContent = m.nombreMes;
+  DOM.yearLabel.textContent = m.anio;
+
+  // Resumen
+  DOM.ocupacion.textContent = m.resumen.ocupacion + '%';
+  DOM.ingresos.textContent  = m.resumen.ingresosMes.toLocaleString('es-ES') + '€';
+
+  // Animación de transición
+  if (direction) {
+    const outClass = direction === 'left' ? 'slide-out-left' : 'slide-out-right';
+    const inClass  = direction === 'left' ? 'slide-in-right' : 'slide-in-left';
+
+    DOM.calendarGrid.classList.add(outClass);
+
+    setTimeout(() => {
+      renderCeldas(m.dias);
+      DOM.calendarGrid.classList.remove(outClass);
+      DOM.calendarGrid.classList.add(inClass);
+
+      setTimeout(() => DOM.calendarGrid.classList.remove(inClass), 260);
+    }, 200);
+  } else {
+    renderCeldas(m.dias);
+  }
+}
+
+/**
+ * Genera el HTML de las celdas del calendario.
+ */
+function renderCeldas(dias) {
+  const hoy = new Date();
+  const hoyStr = formatoFecha(hoy.getFullYear(), hoy.getMonth() + 1, hoy.getDate());
+
+  let html = '';
+  let idx = 0;
+
+  for (const d of dias) {
+    const delay = Math.min(idx * 12, 350);
+
+    if (d.esPadding) {
+      html += `<div class="day-cell padding" style="--delay:${delay}ms"></div>`;
+    } else if (d.estado === EstadoDia.ALQUILADO) {
+      const todayClass = d.fecha === hoyStr ? ' today' : '';
+      html += `
+        <div class="day-cell rented${todayClass}"
+             style="--delay:${delay}ms"
+             data-reserva-id="${d.reservaId}"
+             onclick="abrirDetalle('${d.reservaId}')">
+          <span class="day-number">${d.dia}</span>
+          <span class="guest-badge">👥${d.huespedes}</span>
+        </div>`;
+    } else {
+      const todayClass = d.fecha === hoyStr ? ' today' : '';
+      html += `
+        <div class="day-cell available${todayClass}" style="--delay:${delay}ms">
+          <span class="day-number">${d.dia}</span>
+          <span class="day-price">${d.precioBase}€</span>
+        </div>`;
+    }
+    idx++;
+  }
+
+  DOM.calendarGrid.innerHTML = html;
+}
+
+// ------------------------------------------------------------
+// BOTTOM SHEET — Detalle de Reserva
+// ------------------------------------------------------------
+
+function abrirDetalle(reservaId) {
+  const r = reservasPorId.get(reservaId);
+  if (!r) return;
+
+  // Vibración háptica suave (si disponible)
+  if (navigator.vibrate) navigator.vibrate(15);
+
+  DOM.sheetResId.textContent   = r.id;
+  DOM.sheetClient.textContent  = r.nombreCliente || 'Sin nombre';
+  DOM.sheetDates.textContent   = `${formatearFechaCorta(r.fechaInicio)} → ${formatearFechaCorta(r.fechaFin)}`;
+  DOM.sheetDatesSub.textContent = `${r.noches} noche${r.noches !== 1 ? 's' : ''}`;
+  DOM.sheetGuests.textContent  = `${r.huespedes} huésped${r.huespedes !== 1 ? 'es' : ''}`;
+  DOM.sheetPrice.textContent   = `${r.precioTotal.toLocaleString('es-ES')}€`;
+  DOM.sheetPriceSub.textContent = `${r.precioNoche}€ / noche`;
+
+  // Notas (mostrar/ocultar)
+  if (r.notas) {
+    DOM.sheetNotes.textContent = r.notas;
+    DOM.sheetNotesRow.style.display = 'flex';
+  } else {
+    DOM.sheetNotesRow.style.display = 'none';
+  }
+
+  DOM.overlay.classList.add('active');
+  DOM.bottomSheet.classList.add('active');
+}
+
+function cerrarDetalle() {
+  DOM.overlay.classList.remove('active');
+  DOM.bottomSheet.classList.remove('active');
+}
+
+/**
+ * Formatea 'YYYY-MM-DD' → '3 May'
+ */
+function formatearFechaCorta(fechaStr) {
+  const mesesCortos = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const [, m, d] = fechaStr.split('-');
+  return `${parseInt(d)} ${mesesCortos[parseInt(m) - 1]}`;
+}
+
+// ------------------------------------------------------------
+// NAVEGACIÓN
+// ------------------------------------------------------------
+
+async function irMesAnterior() {
+  if (AppState.cargando) return; // Evitar doble-tap
+  const prev = mesAnterior(AppState.anio, AppState.mes);
+  AppState.anio = prev.anio;
+  AppState.mes  = prev.mes;
+  await renderMes('right');
+}
+
+async function irMesSiguiente() {
+  if (AppState.cargando) return; // Evitar doble-tap
+  const next = mesSiguiente(AppState.anio, AppState.mes);
+  AppState.anio = next.anio;
+  AppState.mes  = next.mes;
+  await renderMes('left');
+}
+
+// Soporte de swipe táctil
+let touchStartX = 0;
+let touchStartY = 0;
+
+function initSwipe() {
+  const grid = DOM.calendarGrid;
+
+  grid.addEventListener('touchstart', (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+  }, { passive: true });
+
+  grid.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].screenX - touchStartX;
+    const dy = e.changedTouches[0].screenY - touchStartY;
+
+    // Solo swipe horizontal si dx > dy
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0) irMesSiguiente();
+      else        irMesAnterior();
+    }
+  }, { passive: true });
+}
+
+// ------------------------------------------------------------
+// INICIALIZACIÓN
+// ------------------------------------------------------------
+
+document.addEventListener('DOMContentLoaded', async () => {
+  cachearDOM();
+  detectarModo();
+  await renderMes();
+  initSwipe();
+
+  // Eventos
+  DOM.btnPrev.addEventListener('click', irMesAnterior);
+  DOM.btnNext.addEventListener('click', irMesSiguiente);
+  DOM.overlay.addEventListener('click', cerrarDetalle);
+});
