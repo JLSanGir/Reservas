@@ -1,6 +1,6 @@
 /* ============================================================
    RESERVAS — Design System & Styles
-   Mobile-first, premium glassmorphism calendar UI
+   Mobile-first, light calendar UI
    ============================================================ */
 
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -8,30 +8,31 @@
 
 /* ── CSS Variables ── */
 :root {
-  --bg-primary: #0f0f1a;
-  --bg-secondary: #1a1a2e;
-  --bg-card: rgba(30, 30, 55, 0.7);
-  --bg-glass: rgba(255, 255, 255, 0.04);
-  --border-glass: rgba(255, 255, 255, 0.08);
+  --bg-primary: #f7fbff;
+  --bg-secondary: #ffffff;
+  --bg-card: rgba(255, 255, 255, 0.92);
+  --bg-glass: rgba(255, 255, 255, 0.82);
+  --border-glass: rgba(148, 163, 184, 0.22);
 
-  --text-primary: #f0f0f5;
-  --text-secondary: #8a8aa3;
-  --text-muted: #555570;
+  --text-primary: #172033;
+  --text-secondary: #5c6b82;
+  --text-muted: #8a97aa;
 
-  --accent-available: #6c63ff;
-  --accent-rented: #00d4aa;
-  --accent-rented-bg: rgba(0, 212, 170, 0.12);
-  --accent-rented-border: rgba(0, 212, 170, 0.3);
-  --accent-price: #fbbf24;
-  --accent-warn: #ff6b6b;
+  --accent-available: #4f7cff;
+  --accent-available-soft: rgba(79, 124, 255, 0.1);
+  --accent-rented: #15966f;
+  --accent-rented-bg: #e7f8f0;
+  --accent-rented-border: #9ee4c5;
+  --accent-price: #d18a00;
+  --accent-warn: #dc4c64;
 
   --radius-sm: 8px;
   --radius-md: 14px;
   --radius-lg: 20px;
   --radius-xl: 28px;
 
-  --shadow-soft: 0 4px 24px rgba(0, 0, 0, 0.3);
-  --shadow-glow: 0 0 30px rgba(108, 99, 255, 0.15);
+  --shadow-soft: 0 12px 34px rgba(91, 119, 150, 0.14);
+  --shadow-glow: 0 12px 28px rgba(79, 124, 255, 0.13);
 
   --transition-fast: 180ms cubic-bezier(0.4, 0, 0.2, 1);
   --transition-smooth: 350ms cubic-bezier(0.4, 0, 0.2, 1);
@@ -51,21 +52,21 @@ html {
 
 body {
   font-family: 'Inter', system-ui, -apple-system, sans-serif;
-  background: var(--bg-primary);
+  background: linear-gradient(180deg, #f7fbff 0%, #eef6ff 52%, #f9fbfd 100%);
   color: var(--text-primary);
   min-height: 100dvh;
   overflow-x: hidden;
   padding-bottom: env(safe-area-inset-bottom, 0);
 }
 
-/* Subtle gradient background */
+/* Subtle light background */
 body::before {
   content: '';
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse 60% 50% at 20% 10%, rgba(108, 99, 255, 0.08) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 40% at 80% 80%, rgba(0, 212, 170, 0.06) 0%, transparent 60%);
+    linear-gradient(135deg, rgba(186, 218, 255, 0.32), transparent 48%),
+    radial-gradient(ellipse 50% 42% at 84% 12%, rgba(198, 235, 224, 0.42) 0%, transparent 60%);
   pointer-events: none;
   z-index: 0;
 }
@@ -95,7 +96,7 @@ body::before {
   font-size: 1.35rem;
   font-weight: 700;
   letter-spacing: -0.02em;
-  background: linear-gradient(135deg, var(--text-primary), var(--accent-available));
+  background: linear-gradient(135deg, #1d3557, var(--accent-available));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -116,7 +117,7 @@ body::before {
   height: 44px;
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-md);
-  background: var(--bg-glass);
+  background: rgba(255, 255, 255, 0.9);
   color: var(--text-primary);
   cursor: pointer;
   transition: all var(--transition-fast);
@@ -126,7 +127,7 @@ body::before {
 
 .nav-btn:active {
   transform: scale(0.92);
-  background: rgba(108, 99, 255, 0.15);
+  background: var(--accent-available-soft);
   border-color: var(--accent-available);
 }
 
@@ -148,7 +149,7 @@ body::before {
   gap: 8px;
   padding: 10px 12px;
   border-radius: var(--radius-md);
-  background: var(--bg-glass);
+  background: rgba(255, 255, 255, 0.9);
   border: 1px solid var(--border-glass);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
@@ -166,12 +167,12 @@ body::before {
 }
 
 .chip-icon.ocupacion {
-  background: rgba(108, 99, 255, 0.15);
+  background: var(--accent-available-soft);
   color: var(--accent-available);
 }
 
 .chip-icon.ingresos {
-  background: rgba(251, 191, 36, 0.12);
+  background: #fff3cf;
   color: var(--accent-price);
 }
 
@@ -250,13 +251,14 @@ body::before {
 
 /* Available day */
 .day-cell.available {
-  background: var(--bg-glass);
-  border: 1px solid transparent;
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid rgba(148, 163, 184, 0.16);
 }
 
 .day-cell.available:active {
   transform: scale(0.93);
-  border-color: var(--border-glass);
+  border-color: rgba(79, 124, 255, 0.28);
+  background: #eef5ff;
 }
 
 .day-cell .day-number {
@@ -282,7 +284,7 @@ body::before {
 
 .day-cell.rented:active {
   transform: scale(0.93);
-  background: rgba(0, 212, 170, 0.22);
+  background: #d7f3e6;
 }
 
 .day-cell.rented .day-number {
@@ -318,7 +320,8 @@ body::before {
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: rgba(23, 32, 51, 0.28);
+  backdrop-filter: blur(2px);
   z-index: 100;
   opacity: 0;
   pointer-events: none;
@@ -345,7 +348,7 @@ body::before {
   padding: 12px 20px calc(20px + env(safe-area-inset-bottom, 0));
   transform: translateY(100%);
   transition: transform var(--transition-smooth);
-  box-shadow: 0 -8px 40px rgba(0, 0, 0, 0.4);
+  box-shadow: 0 -18px 48px rgba(91, 119, 150, 0.22);
 }
 
 .bottom-sheet.active {
@@ -356,7 +359,7 @@ body::before {
   width: 36px;
   height: 4px;
   border-radius: 2px;
-  background: var(--text-muted);
+  background: #c7d1df;
   margin: 0 auto 16px;
 }
 
@@ -373,7 +376,7 @@ body::before {
   font-size: 0.7rem;
   font-weight: 500;
   color: var(--text-muted);
-  background: var(--bg-glass);
+  background: #f4f8fc;
   padding: 3px 8px;
   border-radius: 6px;
   border: 1px solid var(--border-glass);
@@ -403,22 +406,22 @@ body::before {
 }
 
 .detail-icon.dates {
-  background: rgba(108, 99, 255, 0.12);
+  background: var(--accent-available-soft);
   color: var(--accent-available);
 }
 
 .detail-icon.guests {
-  background: rgba(0, 212, 170, 0.12);
+  background: #e7f8f0;
   color: var(--accent-rented);
 }
 
 .detail-icon.price {
-  background: rgba(251, 191, 36, 0.12);
+  background: #fff3cf;
   color: var(--accent-price);
 }
 
 .detail-icon.client {
-  background: rgba(240, 240, 245, 0.06);
+  background: #f4f8fc;
   color: var(--text-secondary);
 }
 
