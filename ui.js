@@ -14,6 +14,8 @@ const AppState = {
   reservas: [],                     // Array de Reserva (mes actual)
   preciosCustom: new Map(),
   cargando: false,                  // Flag de loading
+  diaEditando: null,
+  guardando: false,
   usarSupabase: false,              // Se activa si la config es válida
 };
 
@@ -169,6 +171,8 @@ function cachearDOM() {
   DOM.yearLabel    = $('#year-label');
   DOM.btnPrev      = $('#btn-prev');
   DOM.btnNext      = $('#btn-next');
+  DOM.btnNewReservation = $('#btn-new-reservation');
+  DOM.toast        = $('#toast');
   DOM.ocupacion    = $('#val-ocupacion');
   DOM.ingresos     = $('#val-ingresos');
   DOM.calendarGrid = $('#calendar-grid');
@@ -262,7 +266,9 @@ function renderCeldas(dias) {
     } else {
       const todayClass = d.fecha === hoyStr ? ' today' : '';
       html += `
-        <div class="day-cell available${todayClass}" style="--delay:${delay}ms">
+        <div class="day-cell available${todayClass}"
+             style="--delay:${delay}ms"
+             onclick="abrirEditarDia('${d.fecha}', ${d.precioBase})">
           <span class="day-number">${d.dia}</span>
           <span class="day-price">${d.precioBase}€</span>
         </div>`;
@@ -322,6 +328,288 @@ function formatearFechaCorta(fechaStr) {
 // NAVEGACIÓN
 // ------------------------------------------------------------
 
+function abrirBottomSheet() {
+  DOM.overlay.classList.add('active');
+  DOM.bottomSheet.classList.add('active');
+}
+
+function cerrarDetalle() {
+  DOM.overlay.classList.remove('active');
+  DOM.bottomSheet.classList.remove('active');
+  AppState.diaEditando = null;
+}
+
+function abrirDetalle(reservaId) {
+  const r = reservasPorId.get(reservaId);
+  if (!r) return;
+
+  if (navigator.vibrate) navigator.vibrate(15);
+
+  DOM.bottomSheet.innerHTML = `
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">
+      Reserva
+      <span class="res-id">${r.id}</span>
+    </div>
+
+    <div class="sheet-details">
+      <div class="detail-row">
+        <div class="detail-icon client">👤</div>
+        <div class="detail-info">
+          <span class="detail-label">Huésped</span>
+          <span class="detail-value">${r.nombreCliente || 'Sin nombre'}</span>
+        </div>
+      </div>
+
+      <div class="detail-row">
+        <div class="detail-icon dates">📅</div>
+        <div class="detail-info">
+          <span class="detail-label">Estancia</span>
+          <span class="detail-value">${formatearFechaCorta(r.fechaInicio)} → ${formatearFechaCorta(r.fechaFin)}</span>
+          <span class="detail-sub">${r.noches} noche${r.noches !== 1 ? 's' : ''}</span>
+        </div>
+      </div>
+
+      <div class="detail-row">
+        <div class="detail-icon guests">👥</div>
+        <div class="detail-info">
+          <span class="detail-label">Huéspedes</span>
+          <span class="detail-value">${r.huespedes} huésped${r.huespedes !== 1 ? 'es' : ''}</span>
+        </div>
+      </div>
+
+      <div class="detail-row">
+        <div class="detail-icon price">€</div>
+        <div class="detail-info">
+          <span class="detail-label">Precio total</span>
+          <span class="detail-value">${r.precioTotal.toLocaleString('es-ES')}€</span>
+          <span class="detail-sub">${r.precioNoche}€ / noche</span>
+        </div>
+      </div>
+
+      ${r.notas ? `
+        <div class="detail-row">
+          <div class="detail-icon client">✎</div>
+          <div class="detail-info">
+            <span class="detail-label">Notas</span>
+            <span class="detail-value">${r.notas}</span>
+          </div>
+        </div>
+      ` : ''}
+    </div>`;
+
+  abrirBottomSheet();
+}
+
+function abrirEditarDia(fecha, precioActual) {
+  AppState.diaEditando = { fecha, precioActual };
+  if (navigator.vibrate) navigator.vibrate(10);
+
+  DOM.bottomSheet.innerHTML = `
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Editar día</div>
+    <form class="sheet-form" id="price-form">
+      <div class="form-field">
+        <label for="day-date">Fecha seleccionada</label>
+        <input id="day-date" type="text" value="${formatearFechaCorta(fecha)}" disabled>
+      </div>
+
+      <div class="form-field">
+        <label for="day-price">Precio por noche</label>
+        <div class="input-with-suffix">
+          <input id="day-price" type="number" min="0" step="1" inputmode="decimal" value="${precioActual}" required>
+          <span>€</span>
+        </div>
+      </div>
+
+      <p class="form-error" id="price-form-error" aria-live="polite"></p>
+
+      <button class="primary-action" type="submit">Guardar precio</button>
+    </form>`;
+
+  abrirBottomSheet();
+  $('#price-form').addEventListener('submit', guardarPrecioDiaSeleccionado);
+  $('#day-price').focus();
+}
+
+async function guardarPrecioDiaSeleccionado(event) {
+  event.preventDefault();
+  if (AppState.guardando || !AppState.diaEditando) return;
+
+  const precio = Number($('#day-price').value);
+  const errorEl = $('#price-form-error');
+
+  if (!Number.isFinite(precio) || precio < 0) {
+    errorEl.textContent = 'Introduce un precio válido.';
+    return;
+  }
+
+  AppState.guardando = true;
+  setFormBusy('#price-form', true);
+
+  try {
+    if (AppState.usarSupabase) {
+      const ok = await actualizarPrecioDia(AppState.diaEditando.fecha, precio);
+      if (!ok) throw new Error('No se pudo guardar el precio.');
+    }
+    AppState.preciosCustom.set(AppState.diaEditando.fecha, precio);
+
+    cerrarDetalle();
+    mostrarToast('Precio actualizado');
+    await renderMes();
+  } catch (err) {
+    errorEl.textContent = err.message || 'No se pudo guardar el precio.';
+  } finally {
+    AppState.guardando = false;
+    setFormBusy('#price-form', false);
+  }
+}
+
+function abrirNuevaReserva() {
+  if (navigator.vibrate) navigator.vibrate(10);
+  const ultimoDiaMes = new Date(AppState.anio, AppState.mes, 0).getDate();
+  const diaSugerido = Math.min(new Date().getDate(), ultimoDiaMes);
+  const fechaSugerida = formatoFecha(AppState.anio, AppState.mes, diaSugerido);
+
+  DOM.bottomSheet.innerHTML = `
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Nueva reserva</div>
+    <form class="sheet-form" id="reservation-form">
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="booking-start">Check-in</label>
+          <input id="booking-start" type="date" value="${fechaSugerida}" required>
+        </div>
+        <div class="form-field">
+          <label for="booking-end">Check-out</label>
+          <input id="booking-end" type="date" required>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="booking-guests">Huéspedes</label>
+          <input id="booking-guests" type="number" min="1" step="1" inputmode="numeric" value="2" required>
+        </div>
+        <div class="form-field">
+          <label for="booking-price">Precio total</label>
+          <div class="input-with-suffix">
+            <input id="booking-price" type="number" min="0" step="1" inputmode="decimal" required>
+            <span>€</span>
+          </div>
+        </div>
+      </div>
+
+      <p class="form-error" id="reservation-form-error" aria-live="polite"></p>
+
+      <button class="primary-action" type="submit">Confirmar reserva</button>
+    </form>`;
+
+  abrirBottomSheet();
+  $('#reservation-form').addEventListener('submit', confirmarNuevaReserva);
+  $('#booking-start').addEventListener('change', prepararFechaSalida);
+  prepararFechaSalida();
+}
+
+function prepararFechaSalida() {
+  const start = $('#booking-start');
+  const end = $('#booking-end');
+  if (!start || !end || !start.value) return;
+
+  const minEnd = sumarDias(start.value, 1);
+  end.min = minEnd;
+  if (!end.value || end.value <= start.value) end.value = minEnd;
+}
+
+async function confirmarNuevaReserva(event) {
+  event.preventDefault();
+  if (AppState.guardando) return;
+
+  const form = event.currentTarget;
+  const errorEl = $('#reservation-form-error');
+  const datos = {
+    fechaInicio: $('#booking-start').value,
+    fechaFin: $('#booking-end').value,
+    huespedes: Number($('#booking-guests').value),
+    precioTotal: Number($('#booking-price').value),
+  };
+
+  const errorValidacion = validarReserva(datos);
+  if (errorValidacion) {
+    errorEl.textContent = errorValidacion;
+    return;
+  }
+
+  AppState.guardando = true;
+  setFormBusy('#reservation-form', true);
+
+  try {
+    if (AppState.usarSupabase) {
+      await guardarReserva(datos);
+    } else {
+      if (haySolapamientoLocal(datos.fechaInicio, datos.fechaFin)) {
+        const conflicto = new Error('Las fechas seleccionadas ya están ocupadas');
+        conflicto.code = '23P01';
+        throw conflicto;
+      }
+      AppState.reservas.push(crearReserva({
+        id: `demo-${Date.now()}`,
+        ...datos,
+      }));
+    }
+
+    form.reset();
+    cerrarDetalle();
+    mostrarToast('Reserva creada');
+    await renderMes();
+  } catch (err) {
+    errorEl.textContent = err.code === '23P01'
+      ? 'Las fechas seleccionadas ya están ocupadas'
+      : 'No se pudo crear la reserva. Inténtalo de nuevo.';
+  } finally {
+    AppState.guardando = false;
+    setFormBusy('#reservation-form', false);
+  }
+}
+
+function validarReserva(datos) {
+  if (!datos.fechaInicio || !datos.fechaFin) return 'Selecciona las fechas de entrada y salida.';
+  if (datos.fechaFin <= datos.fechaInicio) return 'La fecha de salida debe ser posterior a la entrada.';
+  if (!Number.isInteger(datos.huespedes) || datos.huespedes < 1) return 'Indica al menos 1 huésped.';
+  if (!Number.isFinite(datos.precioTotal) || datos.precioTotal < 0) return 'Introduce un precio total válido.';
+  return '';
+}
+
+function haySolapamientoLocal(fechaInicio, fechaFin) {
+  return AppState.reservas.some(r => fechaInicio < r.fechaFin && fechaFin > r.fechaInicio);
+}
+
+function sumarDias(fecha, dias) {
+  const date = new Date(fecha + 'T00:00:00');
+  date.setDate(date.getDate() + dias);
+  return date.toISOString().slice(0, 10);
+}
+
+function setFormBusy(formSelector, busy) {
+  const form = $(formSelector);
+  if (!form) return;
+  form.querySelectorAll('input, button').forEach(el => {
+    el.disabled = busy;
+  });
+}
+
+let toastTimeout = null;
+function mostrarToast(mensaje) {
+  if (!DOM.toast) return;
+  DOM.toast.textContent = mensaje;
+  DOM.toast.classList.add('active');
+
+  clearTimeout(toastTimeout);
+  toastTimeout = setTimeout(() => {
+    DOM.toast.classList.remove('active');
+  }, 2200);
+}
+
 async function irMesAnterior() {
   if (AppState.cargando) return; // Evitar doble-tap
   const prev = mesAnterior(AppState.anio, AppState.mes);
@@ -375,5 +663,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Eventos
   DOM.btnPrev.addEventListener('click', irMesAnterior);
   DOM.btnNext.addEventListener('click', irMesSiguiente);
+  DOM.btnNewReservation.addEventListener('click', abrirNuevaReserva);
   DOM.overlay.addEventListener('click', cerrarDetalle);
 });

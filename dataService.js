@@ -112,7 +112,7 @@ async function obtenerDatosMes(mes, anio) {
  * @param {string} [datos.nombreCliente]
  * @param {string} [datos.telefono]
  * @param {string} [datos.notas]
- * @returns {Promise<Object|null>} Reserva creada (modelo local) o null si error
+ * @returns {Promise<Object>} Reserva creada (modelo local)
  */
 async function guardarReserva(datos) {
   try {
@@ -134,7 +134,9 @@ async function guardarReserva(datos) {
       // Detectar error de solapamiento (exclusion constraint)
       if (error.code === '23P01') {
         console.warn('⚠️ Conflicto: ya existe una reserva en esas fechas.');
-        throw new Error('SOLAPAMIENTO: Ya existe una reserva que cubre parte de esas fechas.');
+        const conflicto = new Error('Las fechas seleccionadas ya están ocupadas.');
+        conflicto.code = '23P01';
+        throw conflicto;
       }
       throw error;
     }
@@ -154,7 +156,7 @@ async function guardarReserva(datos) {
     });
   } catch (err) {
     console.error('❌ Error al guardar reserva:', err.message);
-    return null;
+    throw err;
   }
 }
 
