@@ -156,6 +156,7 @@ async function guardarReserva(datos) {
     });
   } catch (err) {
     console.error('❌ Error al guardar reserva:', err.message);
+    // Re-lanzar para que la UI pueda capturar el tipo de error
     throw err;
   }
 }

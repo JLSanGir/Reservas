@@ -422,15 +422,18 @@ async function confirmarEliminarReserva(reservaId) {
     let ok = true;
     if (AppState.usarSupabase) {
       ok = await eliminarReserva(reservaId);
-    } else {
-      AppState.reservas = AppState.reservas.filter(r => r.id !== reservaId);
-      reservasPorId.delete(reservaId);
     }
 
     if (!ok) throw new Error('No se pudo eliminar la reserva.');
 
+    // Limpiar localmente la reserva de la memoria para una actualización visual reactiva e instantánea
+    AppState.reservas = AppState.reservas.filter(r => r.id !== reservaId);
+    reservasPorId.delete(reservaId);
+
     cerrarDetalle();
     mostrarToast('Reserva eliminada correctamente');
+    
+    // Volver a renderizar el mes actual (redibujando el calendario)
     await renderMes();
   } catch (err) {
     mostrarToast(err.message || 'No se pudo eliminar la reserva');
