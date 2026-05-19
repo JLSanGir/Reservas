@@ -396,9 +396,51 @@ function abrirDetalle(reservaId) {
           </div>
         </div>
       ` : ''}
-    </div>`;
+    </div>
+
+    <button class="danger-action" type="button" onclick="confirmarEliminarReserva('${r.id}')">
+      Borrar Reserva
+    </button>`;
 
   abrirBottomSheet();
+}
+
+async function confirmarEliminarReserva(reservaId) {
+  if (AppState.guardando) return;
+
+  const confirmado = confirm('¿Estás seguro de que deseas eliminar esta reserva? Esta acción no se puede deshacer');
+  if (!confirmado) return;
+
+  AppState.guardando = true;
+  const deleteButton = DOM.bottomSheet.querySelector('.danger-action');
+  if (deleteButton) {
+    deleteButton.disabled = true;
+    deleteButton.textContent = 'Borrando...';
+  }
+
+  try {
+    let ok = true;
+    if (AppState.usarSupabase) {
+      ok = await eliminarReserva(reservaId);
+    } else {
+      AppState.reservas = AppState.reservas.filter(r => r.id !== reservaId);
+      reservasPorId.delete(reservaId);
+    }
+
+    if (!ok) throw new Error('No se pudo eliminar la reserva.');
+
+    cerrarDetalle();
+    mostrarToast('Reserva eliminada correctamente');
+    await renderMes();
+  } catch (err) {
+    mostrarToast(err.message || 'No se pudo eliminar la reserva');
+    if (deleteButton) {
+      deleteButton.disabled = false;
+      deleteButton.textContent = 'Borrar Reserva';
+    }
+  } finally {
+    AppState.guardando = false;
+  }
 }
 
 function abrirEditarDia(fecha, precioActual) {

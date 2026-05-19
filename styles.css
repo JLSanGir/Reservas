@@ -514,6 +514,31 @@ body::before {
   box-shadow: none;
 }
 
+.danger-action {
+  width: 100%;
+  min-height: 48px;
+  margin-top: 16px;
+  border: 1px solid rgba(220, 76, 100, 0.26);
+  border-radius: var(--radius-md);
+  background: #fff0f3;
+  color: var(--accent-warn);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform var(--transition-fast), opacity var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.danger-action:active {
+  transform: scale(0.98);
+  background: #ffe1e7;
+  border-color: rgba(220, 76, 100, 0.42);
+}
+
+.danger-action:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
 .form-error {
   min-height: 18px;
   color: var(--accent-warn);
