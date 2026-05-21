@@ -704,29 +704,34 @@ async function confirmarNuevaReserva(event) {
   setFormBusy('#reservation-form', true);
 
   try {
+    let nuevaRes = null;
+
     if (AppState.usarSupabase) {
-      await guardarReserva(datos);
+      nuevaRes = await guardarReserva(datos);
     } else {
       if (haySolapamientoLocal(datos.fechaInicio, datos.fechaFin)) {
         const conflicto = new Error('Las fechas seleccionadas ya están ocupadas');
         conflicto.code = '23P01';
         throw conflicto;
       }
-      const nuevaRes = crearReserva({
+      nuevaRes = crearReserva({
         id: `demo-${Date.now()}`,
         ...datos,
       });
-      AppState.reservas.push(nuevaRes);
       if (demoReservas) {
         demoReservas.push(nuevaRes);
         localStorage.setItem('demo_reservas', JSON.stringify(demoReservas));
       }
     }
 
+    AppState.reservas.push(nuevaRes);
+    reservasPorId.set(nuevaRes.id, nuevaRes);
+    AppState.mesActual = null;
+
     form.reset();
     cerrarDetalle();
     mostrarToast('Reserva creada');
-    await renderMes();
+    await renderMes(null, { recargarDatos: false });
   } catch (err) {
     errorEl.textContent = err.code === '23P01'
       ? 'Las fechas seleccionadas ya están ocupadas'
