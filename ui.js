@@ -100,6 +100,7 @@ let demoPreciosCustom = null;
 
 function cargarDatosDemo() {
   // Reservas globales (todos los meses) — se inicializan una única vez
+  // Intentar cargar reservas desde localStorage
   if (!demoReservas) {
     demoReservas = [
       crearReserva({
@@ -157,13 +158,100 @@ function cargarDatosDemo() {
         nombreCliente: 'Navarro Gil',
       }),
     ];
+    const cachedReservas = localStorage.getItem('demo_reservas');
+    if (cachedReservas) {
+      try {
+        const parsed = JSON.parse(cachedReservas);
+        demoReservas = parsed.map(r => crearReserva(r));
+      } catch (e) {
+        console.error('Error parseando demo_reservas de localStorage:', e);
+      }
+    }
+
+    if (!demoReservas) {
+      demoReservas = [
+        crearReserva({
+          id: 'res-001',
+          fechaInicio: '2026-05-03',
+          fechaFin:    '2026-05-07',
+          huespedes:   4,
+          precioTotal: 400,
+          nombreCliente: 'García López',
+          telefono: '+34 612 345 678',
+          notas: 'Check-in tardío (22:00)',
+        }),
+        crearReserva({
+          id: 'res-002',
+          fechaInicio: '2026-05-15',
+          fechaFin:    '2026-05-20',
+          huespedes:   2,
+          precioTotal: 500,
+          nombreCliente: 'Martín Ruiz',
+          telefono: '+34 698 765 432',
+        }),
+        crearReserva({
+          id: 'res-003',
+          fechaInicio: '2026-05-28',
+          fechaFin:    '2026-06-02',
+          huespedes:   3,
+          precioTotal: 600,
+          nombreCliente: 'Fernández Díaz',
+          telefono: '+34 654 321 987',
+          notas: 'Necesitan cuna',
+        }),
+        crearReserva({
+          id: 'res-004',
+          fechaInicio: '2026-06-10',
+          fechaFin:    '2026-06-15',
+          huespedes:   5,
+          precioTotal: 750,
+          nombreCliente: 'Rodríguez Sanz',
+        }),
+        crearReserva({
+          id: 'res-005',
+          fechaInicio: '2026-06-22',
+          fechaFin:    '2026-06-28',
+          huespedes:   2,
+          precioTotal: 680,
+          nombreCliente: 'López Herrera',
+          telefono: '+34 611 222 333',
+        }),
+        crearReserva({
+          id: 'res-006',
+          fechaInicio: '2026-04-18',
+          fechaFin:    '2026-04-23',
+          huespedes:   4,
+          precioTotal: 450,
+          nombreCliente: 'Navarro Gil',
+        }),
+      ];
+      localStorage.setItem('demo_reservas', JSON.stringify(demoReservas));
+    }
   }
 
+  // Intentar cargar precios desde localStorage
   if (!demoPreciosCustom) {
     demoPreciosCustom = new Map([
       ['2026-05-01', 95],
       ['2026-05-02', 95],
     ]);
+    const cachedPrecios = localStorage.getItem('demo_precios_custom');
+    if (cachedPrecios) {
+      try {
+        const parsed = JSON.parse(cachedPrecios);
+        demoPreciosCustom = new Map(parsed);
+      } catch (e) {
+        console.error('Error parseando demo_precios_custom de localStorage:', e);
+      }
+    }
+
+    if (!demoPreciosCustom) {
+      demoPreciosCustom = new Map([
+        ['2026-05-01', 95],
+        ['2026-05-02', 95],
+      ]);
+      localStorage.setItem('demo_precios_custom', JSON.stringify(Array.from(demoPreciosCustom.entries())));
+    }
   }
 
   // Hacer una copia del array para que modificaciones directas no alteren la base
@@ -424,6 +512,7 @@ function quitarReservaDelEstadoLocal(reservaId) {
   AppState.reservas = AppState.reservas.filter(r => r.id !== reservaId);
   if (!AppState.usarSupabase && demoReservas) {
     demoReservas = demoReservas.filter(r => r.id !== reservaId);
+    localStorage.setItem('demo_reservas', JSON.stringify(demoReservas));
   }
   reservasPorId.delete(reservaId);
   AppState.mesActual = null;
@@ -521,6 +610,9 @@ async function guardarPrecioDiaSeleccionado(event) {
       if (!ok) throw new Error('No se pudo guardar el precio.');
     }
     AppState.preciosCustom.set(AppState.diaEditando.fecha, precio);
+    if (!AppState.usarSupabase && demoPreciosCustom) {
+      localStorage.setItem('demo_precios_custom', JSON.stringify(Array.from(demoPreciosCustom.entries())));
+    }
 
     cerrarDetalle();
     mostrarToast('Precio actualizado');
@@ -627,6 +719,7 @@ async function confirmarNuevaReserva(event) {
       AppState.reservas.push(nuevaRes);
       if (demoReservas) {
         demoReservas.push(nuevaRes);
+        localStorage.setItem('demo_reservas', JSON.stringify(demoReservas));
       }
     }
 
