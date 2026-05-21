@@ -95,69 +95,80 @@ function mostrarLoading(visible) {
 // ------------------------------------------------------------
 // DATOS DE DEMO (fallback cuando no hay Supabase)
 // ------------------------------------------------------------
-function cargarDatosDemo() {
-  // Reservas globales (todos los meses) — se filtran en generarMes()
-  AppState.reservas = [
-    crearReserva({
-      id: 'res-001',
-      fechaInicio: '2026-05-03',
-      fechaFin:    '2026-05-07',
-      huespedes:   4,
-      precioTotal: 400,
-      nombreCliente: 'García López',
-      telefono: '+34 612 345 678',
-      notas: 'Check-in tardío (22:00)',
-    }),
-    crearReserva({
-      id: 'res-002',
-      fechaInicio: '2026-05-15',
-      fechaFin:    '2026-05-20',
-      huespedes:   2,
-      precioTotal: 500,
-      nombreCliente: 'Martín Ruiz',
-      telefono: '+34 698 765 432',
-    }),
-    crearReserva({
-      id: 'res-003',
-      fechaInicio: '2026-05-28',
-      fechaFin:    '2026-06-02',
-      huespedes:   3,
-      precioTotal: 600,
-      nombreCliente: 'Fernández Díaz',
-      telefono: '+34 654 321 987',
-      notas: 'Necesitan cuna',
-    }),
-    crearReserva({
-      id: 'res-004',
-      fechaInicio: '2026-06-10',
-      fechaFin:    '2026-06-15',
-      huespedes:   5,
-      precioTotal: 750,
-      nombreCliente: 'Rodríguez Sanz',
-    }),
-    crearReserva({
-      id: 'res-005',
-      fechaInicio: '2026-06-22',
-      fechaFin:    '2026-06-28',
-      huespedes:   2,
-      precioTotal: 680,
-      nombreCliente: 'López Herrera',
-      telefono: '+34 611 222 333',
-    }),
-    crearReserva({
-      id: 'res-006',
-      fechaInicio: '2026-04-18',
-      fechaFin:    '2026-04-23',
-      huespedes:   4,
-      precioTotal: 450,
-      nombreCliente: 'Navarro Gil',
-    }),
-  ];
+let demoReservas = null;
+let demoPreciosCustom = null;
 
-  AppState.preciosCustom = new Map([
-    ['2026-05-01', 95],
-    ['2026-05-02', 95],
-  ]);
+function cargarDatosDemo() {
+  // Reservas globales (todos los meses) — se inicializan una única vez
+  if (!demoReservas) {
+    demoReservas = [
+      crearReserva({
+        id: 'res-001',
+        fechaInicio: '2026-05-03',
+        fechaFin:    '2026-05-07',
+        huespedes:   4,
+        precioTotal: 400,
+        nombreCliente: 'García López',
+        telefono: '+34 612 345 678',
+        notas: 'Check-in tardío (22:00)',
+      }),
+      crearReserva({
+        id: 'res-002',
+        fechaInicio: '2026-05-15',
+        fechaFin:    '2026-05-20',
+        huespedes:   2,
+        precioTotal: 500,
+        nombreCliente: 'Martín Ruiz',
+        telefono: '+34 698 765 432',
+      }),
+      crearReserva({
+        id: 'res-003',
+        fechaInicio: '2026-05-28',
+        fechaFin:    '2026-06-02',
+        huespedes:   3,
+        precioTotal: 600,
+        nombreCliente: 'Fernández Díaz',
+        telefono: '+34 654 321 987',
+        notas: 'Necesitan cuna',
+      }),
+      crearReserva({
+        id: 'res-004',
+        fechaInicio: '2026-06-10',
+        fechaFin:    '2026-06-15',
+        huespedes:   5,
+        precioTotal: 750,
+        nombreCliente: 'Rodríguez Sanz',
+      }),
+      crearReserva({
+        id: 'res-005',
+        fechaInicio: '2026-06-22',
+        fechaFin:    '2026-06-28',
+        huespedes:   2,
+        precioTotal: 680,
+        nombreCliente: 'López Herrera',
+        telefono: '+34 611 222 333',
+      }),
+      crearReserva({
+        id: 'res-006',
+        fechaInicio: '2026-04-18',
+        fechaFin:    '2026-04-23',
+        huespedes:   4,
+        precioTotal: 450,
+        nombreCliente: 'Navarro Gil',
+      }),
+    ];
+  }
+
+  if (!demoPreciosCustom) {
+    demoPreciosCustom = new Map([
+      ['2026-05-01', 95],
+      ['2026-05-02', 95],
+    ]);
+  }
+
+  // Hacer una copia del array para que modificaciones directas no alteren la base
+  AppState.reservas = [...demoReservas];
+  AppState.preciosCustom = demoPreciosCustom;
 }
 
 // ------------------------------------------------------------
@@ -411,6 +422,9 @@ function abrirDetalle(reservaId) {
 
 function quitarReservaDelEstadoLocal(reservaId) {
   AppState.reservas = AppState.reservas.filter(r => r.id !== reservaId);
+  if (!AppState.usarSupabase && demoReservas) {
+    demoReservas = demoReservas.filter(r => r.id !== reservaId);
+  }
   reservasPorId.delete(reservaId);
   AppState.mesActual = null;
 }
@@ -606,10 +620,14 @@ async function confirmarNuevaReserva(event) {
         conflicto.code = '23P01';
         throw conflicto;
       }
-      AppState.reservas.push(crearReserva({
+      const nuevaRes = crearReserva({
         id: `demo-${Date.now()}`,
         ...datos,
-      }));
+      });
+      AppState.reservas.push(nuevaRes);
+      if (demoReservas) {
+        demoReservas.push(nuevaRes);
+      }
     }
 
     form.reset();
