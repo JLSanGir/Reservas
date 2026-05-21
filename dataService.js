@@ -141,6 +141,10 @@ async function guardarReserva(datos) {
       throw error;
     }
 
+    if (!data || !data.id) {
+      throw new Error('Supabase no devolvió la reserva creada.');
+    }
+
     console.log('✅ Reserva guardada:', data.id);
 
     // Retornar como modelo local
@@ -169,12 +173,18 @@ async function guardarReserva(datos) {
  */
 async function eliminarReserva(id) {
   try {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('reservas')
       .delete()
-      .eq('id', id);
+      .eq('id', id)
+      .select('id');
 
     if (error) throw error;
+
+    if (!data || data.length === 0) {
+      console.warn('⚠️ No se eliminó ninguna reserva:', id);
+      return false;
+    }
 
     console.log('🗑️ Reserva eliminada:', id);
     return true;
