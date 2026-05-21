@@ -197,9 +197,13 @@ function cachearDOM() {
  * Actualiza toda la vista del mes actual.
  * @param {'left'|'right'|null} direction — dirección de la animación
  */
-async function renderMes(direction = null) {
-  // Cargar datos del mes desde Supabase o demo
-  await cargarDatosMes();
+async function renderMes(direction = null, { recargarDatos = true } = {}) {
+  // Cargar datos solo cuando hace falta consultar Supabase/demo.
+  // Tras borrar una reserva ya tenemos AppState.reservas limpio, así que podemos
+  // regenerar el mes desde ese estado sin pisarlo con una lectura antigua.
+  if (recargarDatos) {
+    await cargarDatosMes();
+  }
 
   // Generar estructura del mes con los datos cargados
   AppState.mesActual = generarMes(
@@ -405,6 +409,12 @@ function abrirDetalle(reservaId) {
   abrirBottomSheet();
 }
 
+function quitarReservaDelEstadoLocal(reservaId) {
+  AppState.reservas = AppState.reservas.filter(r => r.id !== reservaId);
+  reservasPorId.delete(reservaId);
+  AppState.mesActual = null;
+}
+
 async function confirmarEliminarReserva(reservaId) {
   if (AppState.guardando) return;
 
@@ -427,14 +437,13 @@ async function confirmarEliminarReserva(reservaId) {
     if (!ok) throw new Error('No se pudo eliminar la reserva.');
 
     // Limpiar localmente la reserva de la memoria para una actualización visual reactiva e instantánea
-    AppState.reservas = AppState.reservas.filter(r => r.id !== reservaId);
-    reservasPorId.delete(reservaId);
+    quitarReservaDelEstadoLocal(reservaId);
 
     cerrarDetalle();
     mostrarToast('Reserva eliminada correctamente');
     
     // Volver a renderizar el mes actual (redibujando el calendario)
-    await renderMes();
+    await renderMes(null, { recargarDatos: false });
   } catch (err) {
     mostrarToast(err.message || 'No se pudo eliminar la reserva');
     if (deleteButton) {
