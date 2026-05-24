@@ -757,7 +757,7 @@ function haySolapamientoLocal(fechaInicio, fechaFin) {
 function sumarDias(fecha, dias) {
   const date = new Date(fecha + 'T00:00:00');
   date.setDate(date.getDate() + dias);
-  return date.toISOString().slice(0, 10);
+  return formatoFecha(date.getFullYear(), date.getMonth() + 1, date.getDate());
 }
 
 function setFormBusy(formSelector, busy) {
