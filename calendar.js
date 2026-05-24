@@ -121,6 +121,7 @@ function generarMes(anio, mes, reservas = [], preciosDia = new Map()) {
         reservaId:   reserva.id,
         huespedes:   reserva.huespedes,
         precioNoche: reserva.precioNoche,
+        origen:      reserva.origen,
       }));
     } else {
       // — DÍA DISPONIBLE —

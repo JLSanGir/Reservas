@@ -22,6 +22,21 @@ const AppState = {
 // Mapa rápido de reservas por ID para el BottomSheet
 const reservasPorId = new Map();
 
+const CLASE_ORIGEN_RESERVA = Object.freeze({
+  BOOKING: 'origin-booking',
+  AIRBNB:  'origin-airbnb',
+  PROPIO:  'origin-propio',
+  OTROS:   'origin-otros',
+});
+
+function claseOrigenReserva(origen) {
+  return CLASE_ORIGEN_RESERVA[normalizarOrigenReserva(origen)];
+}
+
+function etiquetaOrigenReserva(origen) {
+  return normalizarOrigenReserva(origen);
+}
+
 // ------------------------------------------------------------
 // DATOS DE DEMO
 // ------------------------------------------------------------
@@ -358,10 +373,12 @@ function renderCeldas(dias) {
       html += `<div class="day-cell padding" style="--delay:${delay}ms"></div>`;
     } else if (d.estado === EstadoDia.ALQUILADO) {
       const todayClass = d.fecha === hoyStr ? ' today' : '';
+      const originClass = claseOrigenReserva(d.origen);
       html += `
-        <div class="day-cell rented${todayClass}"
+        <div class="day-cell rented ${originClass}${todayClass}"
              style="--delay:${delay}ms"
              data-reserva-id="${d.reservaId}"
+             data-origen="${etiquetaOrigenReserva(d.origen)}"
              onclick="abrirDetalle('${d.reservaId}')">
           <span class="day-number">${d.dia}</span>
           <span class="guest-badge">👥${d.huespedes}</span>
@@ -478,6 +495,14 @@ function abrirDetalle(reservaId) {
         <div class="detail-info">
           <span class="detail-label">Huéspedes</span>
           <span class="detail-value">${r.huespedes} huésped${r.huespedes !== 1 ? 'es' : ''}</span>
+        </div>
+      </div>
+
+      <div class="detail-row">
+        <div class="detail-icon origin ${claseOrigenReserva(r.origen)}"></div>
+        <div class="detail-info">
+          <span class="detail-label">Origen</span>
+          <span class="detail-value">${etiquetaOrigenReserva(r.origen)}</span>
         </div>
       </div>
 
@@ -660,6 +685,16 @@ function abrirNuevaReserva() {
         </div>
       </div>
 
+      <div class="form-field">
+        <label for="booking-origin">Origen</label>
+        <select id="booking-origin" required>
+          <option value="BOOKING">BOOKING</option>
+          <option value="AIRBNB">AIRBNB</option>
+          <option value="PROPIO" selected>PROPIO</option>
+          <option value="OTROS">OTROS</option>
+        </select>
+      </div>
+
       <p class="form-error" id="reservation-form-error" aria-live="polite"></p>
 
       <button class="primary-action" type="submit">Confirmar reserva</button>
@@ -692,6 +727,7 @@ async function confirmarNuevaReserva(event) {
     fechaFin: $('#booking-end').value,
     huespedes: Number($('#booking-guests').value),
     precioTotal: Number($('#booking-price').value),
+    origen: $('#booking-origin').value,
   };
 
   const errorValidacion = validarReserva(datos);
@@ -747,6 +783,7 @@ function validarReserva(datos) {
   if (datos.fechaFin <= datos.fechaInicio) return 'La fecha de salida debe ser posterior a la entrada.';
   if (!Number.isInteger(datos.huespedes) || datos.huespedes < 1) return 'Indica al menos 1 huésped.';
   if (!Number.isFinite(datos.precioTotal) || datos.precioTotal < 0) return 'Introduce un precio total válido.';
+  if (!Object.values(OrigenReserva).includes(datos.origen)) return 'Selecciona un origen valido.';
   return '';
 }
 
@@ -763,7 +800,7 @@ function sumarDias(fecha, dias) {
 function setFormBusy(formSelector, busy) {
   const form = $(formSelector);
   if (!form) return;
-  form.querySelectorAll('input, button').forEach(el => {
+  form.querySelectorAll('input, select, button').forEach(el => {
     el.disabled = busy;
   });
 }

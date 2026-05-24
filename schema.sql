@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS reservas (
   nombre_cliente TEXT NOT NULL DEFAULT '',
   telefono       TEXT DEFAULT '',
   notas          TEXT DEFAULT '',
+  origen         TEXT NOT NULL DEFAULT 'PROPIO' CHECK (origen IN ('BOOKING', 'AIRBNB', 'PROPIO', 'OTROS')),
   created_at     TIMESTAMPTZ DEFAULT now(),
   updated_at     TIMESTAMPTZ DEFAULT now(),
 
@@ -23,6 +24,10 @@ CREATE TABLE IF NOT EXISTS reservas (
 );
 
 -- Índice para búsquedas por rango de fechas (consulta principal del calendario)
+ALTER TABLE reservas
+  ADD COLUMN IF NOT EXISTS origen TEXT NOT NULL DEFAULT 'PROPIO'
+  CHECK (origen IN ('BOOKING', 'AIRBNB', 'PROPIO', 'OTROS'));
+
 CREATE INDEX idx_reservas_fechas
   ON reservas USING GIST (daterange(fecha_inicio, fecha_fin));
 
