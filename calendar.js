@@ -28,6 +28,10 @@ function formatoFecha(anio, mes, dia) {
   return `${anio}-${String(mes).padStart(2, '0')}-${String(dia).padStart(2, '0')}`;
 }
 
+function formatoFechaLocal(date) {
+  return formatoFecha(date.getFullYear(), date.getMonth() + 1, date.getDate());
+}
+
 // ------------------------------------------------------------
 // ÍNDICE RÁPIDO DE RESERVAS
 // ------------------------------------------------------------
@@ -48,7 +52,7 @@ function indexarReservasPorFecha(reservas) {
     const cursor = new Date(inicio);
 
     while (cursor < fin) {
-      const clave = cursor.toISOString().slice(0, 10);
+      const clave = formatoFechaLocal(cursor);
       mapa.set(clave, r);
       cursor.setDate(cursor.getDate() + 1);
     }
