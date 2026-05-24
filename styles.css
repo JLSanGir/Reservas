@@ -23,6 +23,18 @@
   --accent-rented: #15966f;
   --accent-rented-bg: #e7f8f0;
   --accent-rented-border: #9ee4c5;
+  --origin-booking: #2563eb;
+  --origin-booking-bg: #eaf1ff;
+  --origin-booking-border: #adc8ff;
+  --origin-airbnb: #e04f67;
+  --origin-airbnb-bg: #fff0f3;
+  --origin-airbnb-border: #f7b2bf;
+  --origin-propio: #15966f;
+  --origin-propio-bg: #e7f8f0;
+  --origin-propio-border: #9ee4c5;
+  --origin-otros: #8b5cf6;
+  --origin-otros-bg: #f3efff;
+  --origin-otros-border: #c9b8ff;
   --accent-price: #d18a00;
   --accent-warn: #dc4c64;
 
@@ -282,9 +294,37 @@ body::before {
   cursor: pointer;
 }
 
+.day-cell.rented.origin-booking,
+.detail-icon.origin.origin-booking {
+  --accent-rented: var(--origin-booking);
+  --accent-rented-bg: var(--origin-booking-bg);
+  --accent-rented-border: var(--origin-booking-border);
+}
+
+.day-cell.rented.origin-airbnb,
+.detail-icon.origin.origin-airbnb {
+  --accent-rented: var(--origin-airbnb);
+  --accent-rented-bg: var(--origin-airbnb-bg);
+  --accent-rented-border: var(--origin-airbnb-border);
+}
+
+.day-cell.rented.origin-propio,
+.detail-icon.origin.origin-propio {
+  --accent-rented: var(--origin-propio);
+  --accent-rented-bg: var(--origin-propio-bg);
+  --accent-rented-border: var(--origin-propio-border);
+}
+
+.day-cell.rented.origin-otros,
+.detail-icon.origin.origin-otros {
+  --accent-rented: var(--origin-otros);
+  --accent-rented-bg: var(--origin-otros-bg);
+  --accent-rented-border: var(--origin-otros-border);
+}
+
 .day-cell.rented:active {
   transform: scale(0.93);
-  background: #d7f3e6;
+  background: var(--accent-rented-bg);
 }
 
 .day-cell.rented .day-number {
@@ -442,7 +482,8 @@ body::before {
   text-transform: uppercase;
 }
 
-.form-field input {
+.form-field input,
+.form-field select {
   width: 100%;
   height: 46px;
   border: 1px solid var(--border-glass);
@@ -456,13 +497,19 @@ body::before {
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
 }
 
-.form-field input:focus {
+.form-field select {
+  appearance: none;
+}
+
+.form-field input:focus,
+.form-field select:focus {
   background: #ffffff;
   border-color: rgba(79, 124, 255, 0.55);
   box-shadow: 0 0 0 4px rgba(79, 124, 255, 0.12);
 }
 
-.form-field input:disabled {
+.form-field input:disabled,
+.form-field select:disabled {
   color: var(--text-secondary);
   background: #eef4fb;
   opacity: 1;
@@ -505,7 +552,8 @@ body::before {
 }
 
 .primary-action:disabled,
-.form-field input:disabled {
+.form-field input:disabled,
+.form-field select:disabled {
   cursor: wait;
 }
 
@@ -607,6 +655,20 @@ body::before {
 .detail-icon.client {
   background: #f4f8fc;
   color: var(--text-secondary);
+}
+
+.detail-icon.origin {
+  background: var(--accent-rented-bg);
+  color: var(--accent-rented);
+  border: 1px solid var(--accent-rented-border);
+}
+
+.detail-icon.origin::before {
+  content: '';
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: currentColor;
 }
 
 .detail-row .detail-info {

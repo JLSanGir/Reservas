@@ -41,6 +41,7 @@ async function obtenerReservasMes(mes, anio) {
       nombreCliente:  row.nombre_cliente || '',
       telefono:       row.telefono || '',
       notas:          row.notas || '',
+      origen:         row.origen || OrigenReserva.PROPIO,
     }));
   } catch (err) {
     console.error('❌ Error al obtener reservas:', err.message);
@@ -126,6 +127,7 @@ async function guardarReserva(datos) {
         nombre_cliente:  datos.nombreCliente || '',
         telefono:        datos.telefono || '',
         notas:           datos.notas || '',
+        origen:          normalizarOrigenReserva(datos.origen),
       })
       .select()
       .single();
@@ -157,6 +159,7 @@ async function guardarReserva(datos) {
       nombreCliente: data.nombre_cliente,
       telefono:      data.telefono,
       notas:         data.notas,
+      origen:        data.origen || OrigenReserva.PROPIO,
     });
   } catch (err) {
     console.error('❌ Error al guardar reserva:', err.message);

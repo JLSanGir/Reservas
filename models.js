@@ -12,6 +12,19 @@ const EstadoDia = Object.freeze({
   ALQUILADO:  1,
 });
 
+const OrigenReserva = Object.freeze({
+  BOOKING: 'BOOKING',
+  AIRBNB:  'AIRBNB',
+  PROPIO:  'PROPIO',
+  OTROS:   'OTROS',
+});
+
+function normalizarOrigenReserva(origen) {
+  return Object.values(OrigenReserva).includes(origen)
+    ? origen
+    : OrigenReserva.PROPIO;
+}
+
 // ------------------------------------------------------------
 // FACTORÍA: Reserva
 // ------------------------------------------------------------
@@ -40,6 +53,7 @@ function crearReserva({
   nombreCliente = '',
   telefono = '',
   notas = '',
+  origen = OrigenReserva.PROPIO,
 }) {
   // Cálculo de noches
   const inicio = new Date(fechaInicio + 'T00:00:00');
@@ -57,6 +71,7 @@ function crearReserva({
     nombreCliente,
     telefono,
     notas,
+    origen: normalizarOrigenReserva(origen),
   });
 }
 
@@ -93,6 +108,7 @@ function crearDiaCalendario({
   reservaId  = null,
   huespedes  = 0,
   precioNoche = 0,
+  origen     = OrigenReserva.PROPIO,
   esPadding  = false,
 }) {
   return Object.freeze({
@@ -104,6 +120,7 @@ function crearDiaCalendario({
     reservaId,
     huespedes,
     precioNoche,
+    origen: normalizarOrigenReserva(origen),
     esPadding,
   });
 }
