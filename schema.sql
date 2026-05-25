@@ -110,7 +110,27 @@ VALUES
   ('2026-05-02', 95.00);
 
 -- ────────────────────────────────────────────────────────────
--- 7. REALTIME — Habilitar publicación para sincronización
+-- 7. TABLA: configuracion
+--    Configuraciones de la aplicación (ej: mínimo de noches)
+-- ────────────────────────────────────────────────────────────
+CREATE TABLE IF NOT EXISTS configuracion (
+  clave  TEXT PRIMARY KEY,
+  valor  TEXT NOT NULL
+);
+
+-- Insertar valor predeterminado para el mínimo de noches de estancia
+INSERT INTO configuracion (clave, valor)
+VALUES ('min_noches', '2')
+ON CONFLICT (clave) DO NOTHING;
+
+ALTER TABLE configuracion ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Acceso completo configuracion"
+  ON configuracion FOR ALL
+  USING (true) WITH CHECK (true);
+
+-- ────────────────────────────────────────────────────────────
+-- 8. REALTIME — Habilitar publicación para sincronización
 --    entre múltiples dispositivos en tiempo real.
 --    Ejecutar estas sentencias en el SQL Editor de Supabase.
 -- ────────────────────────────────────────────────────────────
@@ -118,3 +138,4 @@ VALUES
 -- Si ya existe (viene por defecto en Supabase), solo añadimos las tablas:
 ALTER PUBLICATION supabase_realtime ADD TABLE reservas;
 ALTER PUBLICATION supabase_realtime ADD TABLE precios_disponibles;
+ALTER PUBLICATION supabase_realtime ADD TABLE configuracion;
