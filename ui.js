@@ -17,8 +17,6 @@ const AppState = {
   diaEditando: null,
   guardando: false,
   usarSupabase: false,              // Se activa si la config es válida
-  realtimeChannel: null,            // Canal de Supabase Realtime
-  ultimaRecarga: 0,                 // Timestamp de la última recarga
 };
 
 // Mapa rápido de reservas por ID para el BottomSheet
@@ -860,95 +858,6 @@ function initSwipe() {
 }
 
 // ------------------------------------------------------------
-// SINCRONIZACIÓN EN TIEMPO REAL (Supabase Realtime)
-// Asegura que todos los dispositivos ven los mismos datos
-// ------------------------------------------------------------
-
-/**
- * Suscribe a cambios en tiempo real de la tabla 'reservas'.
- * Cuando otro dispositivo inserta, actualiza o elimina una reserva,
- * este dispositivo recarga automáticamente el calendario.
- */
-function iniciarRealtimeSync() {
-  if (!AppState.usarSupabase || !supabase) return;
-
-  // Eliminar suscripción previa si existe
-  if (AppState.realtimeChannel) {
-    supabase.removeChannel(AppState.realtimeChannel);
-  }
-
-  AppState.realtimeChannel = supabase
-    .channel('reservas-sync')
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'reservas' },
-      (payload) => {
-        console.log('🔄 Cambio detectado en reservas:', payload.eventType);
-        // Recargar el calendario completo desde Supabase
-        recargarDatosSiNecesario(true);
-      }
-    )
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'precios_disponibles' },
-      (payload) => {
-        console.log('🔄 Cambio detectado en precios:', payload.eventType);
-        recargarDatosSiNecesario(true);
-      }
-    )
-    .subscribe((status) => {
-      console.log('📡 Realtime status:', status);
-    });
-}
-
-/**
- * Recarga los datos del mes actual desde Supabase.
- * Usa un debounce para evitar múltiples recargas seguidas.
- * @param {boolean} forzar — si true, ignora el debounce
- */
-async function recargarDatosSiNecesario(forzar = false) {
-  const ahora = Date.now();
-  const MIN_INTERVALO_MS = 2000; // Mínimo 2 segundos entre recargas
-
-  if (!forzar && (ahora - AppState.ultimaRecarga) < MIN_INTERVALO_MS) {
-    return; // Demasiado pronto, saltar
-  }
-
-  if (AppState.cargando || AppState.guardando) return;
-
-  AppState.ultimaRecarga = ahora;
-  console.log('🔄 Recargando datos del mes...');
-  await renderMes();
-}
-
-/**
- * Maneja el evento visibilitychange para recargar datos
- * cuando el usuario vuelve a la app (ej: cambia de pestaña,
- * desbloquea el móvil, vuelve desde otra app).
- */
-function iniciarRecargaAlVolver() {
-  document.addEventListener('visibilitychange', () => {
-    if (document.visibilityState === 'visible') {
-      console.log('👁️ App visible de nuevo, recargando datos...');
-      recargarDatosSiNecesario();
-    }
-  });
-
-  // También recargar al recuperar el foco (navegadores de escritorio)
-  window.addEventListener('focus', () => {
-    recargarDatosSiNecesario();
-  });
-
-  // Recarga periódica cada 60s si la app está visible
-  // (por si Realtime pierde la conexión temporalmente)
-  setInterval(() => {
-    if (document.visibilityState === 'visible' && AppState.usarSupabase) {
-      recargarDatosSiNecesario();
-    }
-  }, 60_000);
-}
-
-// ------------------------------------------------------------
 // INICIALIZACIÓN
 // ------------------------------------------------------------
 
@@ -957,10 +866,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   detectarModo();
   await renderMes();
   initSwipe();
-
-  // Sincronización en tiempo real entre dispositivos
-  iniciarRealtimeSync();
-  iniciarRecargaAlVolver();
 
   // Eventos
   DOM.btnPrev.addEventListener('click', irMesAnterior);

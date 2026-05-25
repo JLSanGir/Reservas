@@ -108,13 +108,3 @@ INSERT INTO precios_disponibles (fecha, precio)
 VALUES
   ('2026-05-01', 95.00),
   ('2026-05-02', 95.00);
-
--- ────────────────────────────────────────────────────────────
--- 7. REALTIME — Habilitar publicación para sincronización
---    entre múltiples dispositivos en tiempo real.
---    Ejecutar estas sentencias en el SQL Editor de Supabase.
--- ────────────────────────────────────────────────────────────
--- Primero, comprobar si la publicación 'supabase_realtime' ya existe.
--- Si ya existe (viene por defecto en Supabase), solo añadimos las tablas:
-ALTER PUBLICATION supabase_realtime ADD TABLE reservas;
-ALTER PUBLICATION supabase_realtime ADD TABLE precios_disponibles;
