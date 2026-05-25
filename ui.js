@@ -322,7 +322,8 @@ function renderCeldas(dias) {
         <div class="day-cell rented ${originClass}${todayClass}"
              style="--delay:${delay}ms"
              data-reserva-id="${d.reservaId}"
-             data-origen="${etiquetaOrigenReserva(d.origen)}">
+             data-origen="${etiquetaOrigenReserva(d.origen)}"
+             onclick="manejarClickDiaRenta('${d.reservaId}')">
           <span class="day-number">${d.dia}</span>
           <span class="guest-badge">👥${d.huespedes}</span>
         </div>`;
@@ -332,8 +333,7 @@ function renderCeldas(dias) {
       html += `
         <div class="day-cell available${todayClass}"
              style="--delay:${delay}ms"
-             data-fecha="${d.fecha}"
-             data-precio-base="${d.precioBase}">
+             onclick="manejarClickDiaDisponible('${d.fecha}', ${d.precioBase})">
           <span class="day-number">${d.dia}</span>
           <span class="day-price">${d.precioBase}€</span>
         </div>`;
@@ -342,25 +342,10 @@ function renderCeldas(dias) {
   }
 
   DOM.calendarGrid.innerHTML = html;
-  enlazarClicksCalendario();
-}
-
-function enlazarClicksCalendario() {
-  DOM.calendarGrid.querySelectorAll('.day-cell.rented').forEach(cell => {
-    cell.addEventListener('click', () => {
-      manejarClickDiaRenta(cell.dataset.reservaId);
-    });
-  });
-
-  DOM.calendarGrid.querySelectorAll('.day-cell.available').forEach(cell => {
-    cell.addEventListener('click', () => {
-      manejarClickDiaDisponible(cell.dataset.fecha, Number(cell.dataset.precioBase));
-    });
-  });
 }
 
 // ------------------------------------------------------------
-// INTERACCIÓN DE DÍAS
+// INTERACCIÓN DE DÍAS Y SELECCIÓN DE RANGO
 // ------------------------------------------------------------
 
 function manejarClickDiaRenta(reservaId) {
