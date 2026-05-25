@@ -19,10 +19,6 @@ const AppState = {
   usarSupabase: false,              // Se activa si la config es válida
   realtimeChannel: null,            // Canal de Supabase Realtime
   ultimaRecarga: 0,                 // Timestamp de la última recarga
-  
-  // Rango de selección táctil y estancia mínima
-  seleccionRango: { inicio: null, fin: null },
-  minNoches: 2,
 };
 
 // Mapa rápido de reservas por ID para el BottomSheet
@@ -44,9 +40,13 @@ function etiquetaOrigenReserva(origen) {
 }
 
 // ------------------------------------------------------------
+// DATOS DE DEMO
+// ------------------------------------------------------------
+// ------------------------------------------------------------
 // DETECCIÓN DE MODO: Supabase vs Demo
 // ------------------------------------------------------------
 function detectarModo() {
+  // Comprobar si supabaseClient.js cargó y tiene URL real
   if (typeof SUPABASE_URL !== 'undefined' &&
       !SUPABASE_URL.includes('TU_PROYECTO')) {
     AppState.usarSupabase = true;
@@ -73,13 +73,9 @@ async function cargarDatosMes() {
   try {
     if (AppState.usarSupabase) {
       // ── Supabase ──
-      const [ { reservas, precios }, minNoches ] = await Promise.all([
-        obtenerDatosMes(AppState.mes, AppState.anio),
-        obtenerMinNoches()
-      ]);
+      const { reservas, precios } = await obtenerDatosMes(AppState.mes, AppState.anio);
       AppState.reservas      = reservas;
       AppState.preciosCustom = precios;
-      AppState.minNoches     = minNoches;
     } else {
       // ── Demo ──
       cargarDatosDemo();
@@ -120,8 +116,65 @@ let demoReservas = null;
 let demoPreciosCustom = null;
 
 function cargarDatosDemo() {
+  // Reservas globales (todos los meses) — se inicializan una única vez
   // Intentar cargar reservas desde localStorage
   if (!demoReservas) {
+    demoReservas = [
+      crearReserva({
+        id: 'res-001',
+        fechaInicio: '2026-05-03',
+        fechaFin:    '2026-05-07',
+        huespedes:   4,
+        precioTotal: 400,
+        nombreCliente: 'García López',
+        telefono: '+34 612 345 678',
+        notas: 'Check-in tardío (22:00)',
+      }),
+      crearReserva({
+        id: 'res-002',
+        fechaInicio: '2026-05-15',
+        fechaFin:    '2026-05-20',
+        huespedes:   2,
+        precioTotal: 500,
+        nombreCliente: 'Martín Ruiz',
+        telefono: '+34 698 765 432',
+      }),
+      crearReserva({
+        id: 'res-003',
+        fechaInicio: '2026-05-28',
+        fechaFin:    '2026-06-02',
+        huespedes:   3,
+        precioTotal: 600,
+        nombreCliente: 'Fernández Díaz',
+        telefono: '+34 654 321 987',
+        notas: 'Necesitan cuna',
+      }),
+      crearReserva({
+        id: 'res-004',
+        fechaInicio: '2026-06-10',
+        fechaFin:    '2026-06-15',
+        huespedes:   5,
+        precioTotal: 750,
+        nombreCliente: 'Rodríguez Sanz',
+      }),
+      crearReserva({
+        id: 'res-005',
+        fechaInicio: '2026-06-22',
+        fechaFin:    '2026-06-28',
+        huespedes:   2,
+        precioTotal: 680,
+        nombreCliente: 'López Herrera',
+        telefono: '+34 611 222 333',
+      }),
+      crearReserva({
+        id: 'res-006',
+        fechaInicio: '2026-04-18',
+        fechaFin:    '2026-04-23',
+        huespedes:   4,
+        precioTotal: 450,
+        nombreCliente: 'Navarro Gil',
+      }),
+    ];
     const cachedReservas = localStorage.getItem('demo_reservas');
     if (cachedReservas) {
       try {
@@ -195,6 +248,10 @@ function cargarDatosDemo() {
 
   // Intentar cargar precios desde localStorage
   if (!demoPreciosCustom) {
+    demoPreciosCustom = new Map([
+      ['2026-05-01', 95],
+      ['2026-05-02', 95],
+    ]);
     const cachedPrecios = localStorage.getItem('demo_precios_custom');
     if (cachedPrecios) {
       try {
@@ -214,10 +271,7 @@ function cargarDatosDemo() {
     }
   }
 
-  // Intentar cargar estancia mínima de localStorage
-  const cachedMinNoches = localStorage.getItem('demo_min_noches');
-  AppState.minNoches = cachedMinNoches ? parseInt(cachedMinNoches, 10) : 2;
-
+  // Hacer una copia del array para que modificaciones directas no alteren la base
   AppState.reservas = [...demoReservas];
   AppState.preciosCustom = demoPreciosCustom;
 }
@@ -240,13 +294,15 @@ function cachearDOM() {
   DOM.calendarGrid = $('#calendar-grid');
   DOM.overlay      = $('#overlay');
   DOM.bottomSheet  = $('#bottom-sheet');
-  
-  // Nuevos DOM Cached Elements
-  DOM.btnMinNights = $('#btn-min-nights');
-  DOM.valMinNights = $('#val-min-nights');
-  DOM.selectionHelper = $('#selection-helper');
-  DOM.selectionHelperText = $('#selection-helper-text');
-  DOM.btnCancelSelection = $('#btn-cancel-selection');
+  DOM.sheetResId   = $('#sheet-res-id');
+  DOM.sheetClient  = $('#sheet-client');
+  DOM.sheetDates   = $('#sheet-dates');
+  DOM.sheetDatesSub = $('#sheet-dates-sub');
+  DOM.sheetGuests  = $('#sheet-guests');
+  DOM.sheetPrice   = $('#sheet-price');
+  DOM.sheetPriceSub = $('#sheet-price-sub');
+  DOM.sheetNotes   = $('#sheet-notes');
+  DOM.sheetNotesRow = $('#sheet-notes-row');
 }
 
 // ------------------------------------------------------------
@@ -258,6 +314,9 @@ function cachearDOM() {
  * @param {'left'|'right'|null} direction — dirección de la animación
  */
 async function renderMes(direction = null, { recargarDatos = true } = {}) {
+  // Cargar datos solo cuando hace falta consultar Supabase/demo.
+  // Tras borrar una reserva ya tenemos AppState.reservas limpio, así que podemos
+  // regenerar el mes desde ese estado sin pisarlo con una lectura antigua.
   if (recargarDatos) {
     await cargarDatosMes();
   }
@@ -279,11 +338,6 @@ async function renderMes(direction = null, { recargarDatos = true } = {}) {
   // Resumen
   DOM.ocupacion.textContent = m.resumen.ocupacion + '%';
   DOM.ingresos.textContent  = m.resumen.ingresosMes.toLocaleString('es-ES') + '€';
-  
-  // Mostrar Estancia Mínima
-  if (DOM.valMinNights) {
-    DOM.valMinNights.textContent = AppState.minNoches + (AppState.minNoches === 1 ? ' noche' : ' noches');
-  }
 
   // Animación de transición
   if (direction) {
@@ -314,10 +368,6 @@ function renderCeldas(dias) {
   let html = '';
   let idx = 0;
 
-  // Rango de fechas seleccionado en la UI
-  const selInicio = AppState.seleccionRango.inicio;
-  const selFin = AppState.seleccionRango.fin;
-
   for (const d of dias) {
     const delay = Math.min(idx * 12, 350);
 
@@ -331,32 +381,16 @@ function renderCeldas(dias) {
              style="--delay:${delay}ms"
              data-reserva-id="${d.reservaId}"
              data-origen="${etiquetaOrigenReserva(d.origen)}"
-             onclick="manejarClickDiaRenta('${d.reservaId}')">
+             onclick="abrirDetalle('${d.reservaId}')">
           <span class="day-number">${d.dia}</span>
           <span class="guest-badge">👥${d.huespedes}</span>
         </div>`;
     } else {
       const todayClass = d.fecha === hoyStr ? ' today' : '';
-      
-      // Clasificación de rango
-      let rangeClass = '';
-      if (selInicio && d.fecha === selInicio) {
-        rangeClass = ' selection-start';
-      } else if (selFin && d.fecha === selFin) {
-        rangeClass = ' selection-end';
-      } else if (selInicio && selFin) {
-        const f = d.fecha;
-        const minF = selInicio < selFin ? selInicio : selFin;
-        const maxF = selInicio < selFin ? selFin : selInicio;
-        if (f > minF && f < maxF) {
-          rangeClass = ' in-range';
-        }
-      }
-
       html += `
-        <div class="day-cell available${todayClass}${rangeClass}"
+        <div class="day-cell available${todayClass}"
              style="--delay:${delay}ms"
-             onclick="manejarClickDiaDisponible('${d.fecha}', ${d.precioBase})">
+             onclick="abrirEditarDia('${d.fecha}', ${d.precioBase})">
           <span class="day-number">${d.dia}</span>
           <span class="day-price">${d.precioBase}€</span>
         </div>`;
@@ -368,77 +402,52 @@ function renderCeldas(dias) {
 }
 
 // ------------------------------------------------------------
-// INTERACCIÓN DE DÍAS Y SELECCIÓN DE RANGO
+// BOTTOM SHEET — Detalle de Reserva
 // ------------------------------------------------------------
 
-function manejarClickDiaRenta(reservaId) {
-  // Cancelar selección en curso si la hay
-  if (AppState.seleccionRango.inicio) {
-    cancelarSeleccionRango();
-  }
-  abrirDetalle(reservaId);
-}
+function abrirDetalle(reservaId) {
+  const r = reservasPorId.get(reservaId);
+  if (!r) return;
 
-function manejarClickDiaDisponible(fecha, precioBase) {
-  const sel = AppState.seleccionRango;
+  // Vibración háptica suave (si disponible)
+  if (navigator.vibrate) navigator.vibrate(15);
 
-  // Vibración suave
-  if (navigator.vibrate) navigator.vibrate(10);
+  DOM.sheetResId.textContent   = r.id;
+  DOM.sheetClient.textContent  = r.nombreCliente || 'Sin nombre';
+  DOM.sheetDates.textContent   = `${formatearFechaCorta(r.fechaInicio)} → ${formatearFechaCorta(r.fechaFin)}`;
+  DOM.sheetDatesSub.textContent = `${r.noches} noche${r.noches !== 1 ? 's' : ''}`;
+  DOM.sheetGuests.textContent  = `${r.huespedes} huésped${r.huespedes !== 1 ? 'es' : ''}`;
+  DOM.sheetPrice.textContent   = `${r.precioTotal.toLocaleString('es-ES')}€`;
+  DOM.sheetPriceSub.textContent = `${r.precioNoche}€ / noche`;
 
-  if (!sel.inicio) {
-    // Primer click: Marcar inicio
-    sel.inicio = fecha;
-    sel.fin = null;
-
-    if (DOM.selectionHelper) {
-      DOM.selectionHelperText.textContent = `Inicio: ${formatearFechaCorta(fecha)}. Selecciona el día final...`;
-      DOM.selectionHelper.classList.add('active');
-    }
-
-    renderCeldas(AppState.mesActual.dias);
+  // Notas (mostrar/ocultar)
+  if (r.notas) {
+    DOM.sheetNotes.textContent = r.notas;
+    DOM.sheetNotesRow.style.display = 'flex';
   } else {
-    // Segundo click: Mismo día → abre un solo día. Otro día → abre rango
-    if (sel.inicio === fecha) {
-      const precioActual = AppState.preciosCustom.get(fecha) ?? precioBase;
-      cancelarSeleccionRango();
-      abrirEditarDia(fecha, precioActual);
-    } else {
-      sel.fin = fecha;
-
-      // Ordenar cronológicamente
-      if (sel.inicio > sel.fin) {
-        const temp = sel.inicio;
-        sel.inicio = sel.fin;
-        sel.fin = temp;
-      }
-
-      renderCeldas(AppState.mesActual.dias);
-
-      if (DOM.selectionHelper) {
-        DOM.selectionHelper.classList.remove('active');
-      }
-
-      // Abrir Bottom Sheet
-      setTimeout(() => {
-        abrirEditarRango(sel.inicio, sel.fin);
-      }, 150);
-    }
+    DOM.sheetNotesRow.style.display = 'none';
   }
+
+  DOM.overlay.classList.add('active');
+  DOM.bottomSheet.classList.add('active');
 }
 
-function cancelarSeleccionRango() {
-  AppState.seleccionRango.inicio = null;
-  AppState.seleccionRango.fin = null;
-  if (DOM.selectionHelper) {
-    DOM.selectionHelper.classList.remove('active');
-  }
-  if (AppState.mesActual) {
-    renderCeldas(AppState.mesActual.dias);
-  }
+function cerrarDetalle() {
+  DOM.overlay.classList.remove('active');
+  DOM.bottomSheet.classList.remove('active');
+}
+
+/**
+ * Formatea 'YYYY-MM-DD' → '3 May'
+ */
+function formatearFechaCorta(fechaStr) {
+  const mesesCortos = ['Ene','Feb','Mar','Abr','May','Jun','Jul','Ago','Sep','Oct','Nov','Dic'];
+  const [, m, d] = fechaStr.split('-');
+  return `${parseInt(d)} ${mesesCortos[parseInt(m) - 1]}`;
 }
 
 // ------------------------------------------------------------
-// BOTTOM SHEET — Edición y Detalles
+// NAVEGACIÓN
 // ------------------------------------------------------------
 
 function abrirBottomSheet() {
@@ -450,7 +459,6 @@ function cerrarDetalle() {
   DOM.overlay.classList.remove('active');
   DOM.bottomSheet.classList.remove('active');
   AppState.diaEditando = null;
-  cancelarSeleccionRango();
 }
 
 function abrirDetalle(reservaId) {
@@ -558,9 +566,13 @@ async function confirmarEliminarReserva(reservaId) {
 
     if (!ok) throw new Error('No se pudo eliminar la reserva.');
 
+    // Limpiar localmente la reserva de la memoria para una actualización visual reactiva e instantánea
     quitarReservaDelEstadoLocal(reservaId);
+
     cerrarDetalle();
     mostrarToast('Reserva eliminada correctamente');
+    
+    // Volver a renderizar el mes actual (redibujando el calendario)
     await renderMes(null, { recargarDatos: false });
   } catch (err) {
     mostrarToast(err.message || 'No se pudo eliminar la reserva');
@@ -572,10 +584,6 @@ async function confirmarEliminarReserva(reservaId) {
     AppState.guardando = false;
   }
 }
-
-// ------------------------------------------------------------
-// EDICIÓN DE PRECIO (DÍA ÚNICO)
-// ------------------------------------------------------------
 
 function abrirEditarDia(fecha, precioActual) {
   AppState.diaEditando = { fecha, precioActual };
@@ -635,7 +643,7 @@ async function guardarPrecioDiaSeleccionado(event) {
 
     cerrarDetalle();
     mostrarToast('Precio actualizado');
-    await renderMes({ recargarDatos: false });
+    await renderMes();
   } catch (err) {
     errorEl.textContent = err.message || 'No se pudo guardar el precio.';
   } finally {
@@ -643,164 +651,6 @@ async function guardarPrecioDiaSeleccionado(event) {
     setFormBusy('#price-form', false);
   }
 }
-
-// ------------------------------------------------------------
-// EDICIÓN DE PRECIO (RANGO DE DÍAS)
-// ------------------------------------------------------------
-
-function abrirEditarRango(inicio, fin) {
-  if (navigator.vibrate) navigator.vibrate(12);
-
-  // Calcular total de días en el rango
-  const dInicio = new Date(inicio + 'T00:00:00');
-  const dFin = new Date(fin + 'T00:00:00');
-  const totalDias = Math.round((dFin - dInicio) / 86_400_000) + 1;
-
-  DOM.bottomSheet.innerHTML = `
-    <div class="sheet-handle"></div>
-    <div class="sheet-title">Editar precios en rango</div>
-    <form class="sheet-form" id="range-price-form">
-      <div class="form-field">
-        <label for="range-dates">Rango seleccionado</label>
-        <input id="range-dates" type="text" value="${formatearFechaCorta(inicio)} → ${formatearFechaCorta(fin)} (${totalDias} días)" disabled>
-      </div>
-
-      <div class="form-field">
-        <label for="range-price">Precio por noche para el rango</label>
-        <div class="input-with-suffix">
-          <input id="range-price" type="number" min="0" step="1" inputmode="decimal" placeholder="Ej: 95" required>
-          <span>€</span>
-        </div>
-      </div>
-
-      <p class="form-error" id="range-price-form-error" aria-live="polite"></p>
-
-      <button class="primary-action" type="submit">Guardar precios en rango</button>
-    </form>`;
-
-  abrirBottomSheet();
-  $('#range-price-form').addEventListener('submit', (e) => guardarPreciosRangoSeleccionado(e, inicio, fin));
-  $('#range-price').focus();
-}
-
-async function guardarPreciosRangoSeleccionado(event, inicio, fin) {
-  event.preventDefault();
-  if (AppState.guardando) return;
-
-  const precio = Number($('#range-price').value);
-  const errorEl = $('#range-price-form-error');
-
-  if (!Number.isFinite(precio) || precio < 0) {
-    errorEl.textContent = 'Introduce un precio válido.';
-    return;
-  }
-
-  AppState.guardando = true;
-  setFormBusy('#range-price-form', true);
-
-  try {
-    if (AppState.usarSupabase) {
-      const ok = await actualizarPreciosRango(inicio, fin, precio);
-      if (!ok) throw new Error('No se pudieron guardar los precios del rango.');
-    }
-
-    // Actualizar en el estado local de memoria
-    const dInicio = new Date(inicio + 'T00:00:00');
-    const dFin = new Date(fin + 'T00:00:00');
-    const actual = new Date(dInicio);
-
-    while (actual <= dFin) {
-      const anio = actual.getFullYear();
-      const mes = String(actual.getMonth() + 1).padStart(2, '0');
-      const dia = String(actual.getDate()).padStart(2, '0');
-      const fechaStr = `${anio}-${mes}-${dia}`;
-
-      AppState.preciosCustom.set(fechaStr, precio);
-      actual.setDate(actual.getDate() + 1);
-    }
-
-    if (!AppState.usarSupabase && demoPreciosCustom) {
-      localStorage.setItem('demo_precios_custom', JSON.stringify(Array.from(demoPreciosCustom.entries())));
-    }
-
-    cancelarSeleccionRango();
-    cerrarDetalle();
-    mostrarToast('Precios actualizados en rango');
-    await renderMes({ recargarDatos: false });
-  } catch (err) {
-    errorEl.textContent = err.message || 'No se pudieron guardar los precios.';
-  } finally {
-    AppState.guardando = false;
-    setFormBusy('#range-price-form', false);
-  }
-}
-
-// ------------------------------------------------------------
-// CONFIGURACIÓN DE ESTANCIA MÍNIMA
-// ------------------------------------------------------------
-
-function abrirEditarMinNoches() {
-  if (navigator.vibrate) navigator.vibrate(10);
-
-  DOM.bottomSheet.innerHTML = `
-    <div class="sheet-handle"></div>
-    <div class="sheet-title">Configurar Estancia Mínima</div>
-    <form class="sheet-form" id="min-nights-form">
-      <div class="form-field">
-        <label for="min-nights-input">Noches mínimas por reserva</label>
-        <input id="min-nights-input" type="number" min="1" max="30" step="1" inputmode="numeric" value="${AppState.minNoches}" required>
-      </div>
-
-      <p class="form-error" id="min-nights-form-error" aria-live="polite"></p>
-
-      <button class="primary-action" type="submit">Guardar configuración</button>
-    </form>`;
-
-  abrirBottomSheet();
-  $('#min-nights-form').addEventListener('submit', guardarMinNochesSeleccionado);
-  $('#min-nights-input').focus();
-}
-
-async function guardarMinNochesSeleccionado(event) {
-  event.preventDefault();
-  if (AppState.guardando) return;
-
-  const noches = parseInt($('#min-nights-input').value, 10);
-  const errorEl = $('#min-nights-form-error');
-
-  if (isNaN(noches) || noches < 1 || noches > 30) {
-    errorEl.textContent = 'Introduce un número de noches válido (entre 1 y 30).';
-    return;
-  }
-
-  AppState.guardando = true;
-  setFormBusy('#min-nights-form', true);
-
-  try {
-    let ok = true;
-    if (AppState.usarSupabase) {
-      ok = await actualizarMinNoches(noches);
-    }
-
-    if (!ok) throw new Error('No se pudo guardar la configuración.');
-
-    AppState.minNoches = noches;
-    localStorage.setItem('demo_min_noches', noches.toString());
-
-    cerrarDetalle();
-    mostrarToast(`Estancia mínima: ${noches} noches`);
-    await renderMes({ recargarDatos: false });
-  } catch (err) {
-    errorEl.textContent = err.message || 'No se pudo guardar la configuración.';
-  } finally {
-    AppState.guardando = false;
-    setFormBusy('#min-nights-form', false);
-  }
-}
-
-// ------------------------------------------------------------
-// CREACIÓN DE NUEVA RESERVA
-// ------------------------------------------------------------
 
 function abrirNuevaReserva() {
   if (navigator.vibrate) navigator.vibrate(10);
@@ -811,7 +661,6 @@ function abrirNuevaReserva() {
   DOM.bottomSheet.innerHTML = `
     <div class="sheet-handle"></div>
     <div class="sheet-title">Nueva reserva</div>
-    <div class="indicator-min-noches">🌙 Estancia mínima: ${AppState.minNoches} noches</div>
     <form class="sheet-form" id="reservation-form">
       <div class="form-grid">
         <div class="form-field">
@@ -864,8 +713,7 @@ function prepararFechaSalida() {
   const end = $('#booking-end');
   if (!start || !end || !start.value) return;
 
-  // Sugerir la salida sumando el mínimo de noches configurado
-  const minEnd = sumarDias(start.value, AppState.minNoches);
+  const minEnd = sumarDias(start.value, 1);
   end.min = minEnd;
   if (!end.value || end.value <= start.value) end.value = minEnd;
 }
@@ -935,15 +783,6 @@ async function confirmarNuevaReserva(event) {
 function validarReserva(datos) {
   if (!datos.fechaInicio || !datos.fechaFin) return 'Selecciona las fechas de entrada y salida.';
   if (datos.fechaFin <= datos.fechaInicio) return 'La fecha de salida debe ser posterior a la entrada.';
-  
-  // Validar mínimo de noches
-  const inicio = new Date(datos.fechaInicio + 'T00:00:00');
-  const fin = new Date(datos.fechaFin + 'T00:00:00');
-  const noches = Math.round((fin - inicio) / 86_400_000);
-  if (noches < AppState.minNoches) {
-    return `Estancia mínima de ${AppState.minNoches} noches. Has seleccionado ${noches} ${noches === 1 ? 'noche' : 'noches'}.`;
-  }
-
   if (!Number.isInteger(datos.huespedes) || datos.huespedes < 1) return 'Indica al menos 1 huésped.';
   if (!Number.isFinite(datos.precioTotal) || datos.precioTotal < 0) return 'Introduce un precio total válido.';
   if (!Object.values(OrigenReserva).includes(datos.origen)) return 'Selecciona un origen valido.';
@@ -1022,11 +861,18 @@ function initSwipe() {
 
 // ------------------------------------------------------------
 // SINCRONIZACIÓN EN TIEMPO REAL (Supabase Realtime)
+// Asegura que todos los dispositivos ven los mismos datos
 // ------------------------------------------------------------
 
+/**
+ * Suscribe a cambios en tiempo real de la tabla 'reservas'.
+ * Cuando otro dispositivo inserta, actualiza o elimina una reserva,
+ * este dispositivo recarga automáticamente el calendario.
+ */
 function iniciarRealtimeSync() {
   if (!AppState.usarSupabase || !supabase) return;
 
+  // Eliminar suscripción previa si existe
   if (AppState.realtimeChannel) {
     supabase.removeChannel(AppState.realtimeChannel);
   }
@@ -1038,6 +884,7 @@ function iniciarRealtimeSync() {
       { event: '*', schema: 'public', table: 'reservas' },
       (payload) => {
         console.log('🔄 Cambio detectado en reservas:', payload.eventType);
+        // Recargar el calendario completo desde Supabase
         recargarDatosSiNecesario(true);
       }
     )
@@ -1049,25 +896,22 @@ function iniciarRealtimeSync() {
         recargarDatosSiNecesario(true);
       }
     )
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'public', table: 'configuracion' },
-      (payload) => {
-        console.log('🔄 Cambio detectado en configuracion:', payload.eventType);
-        recargarDatosSiNecesario(true);
-      }
-    )
     .subscribe((status) => {
       console.log('📡 Realtime status:', status);
     });
 }
 
+/**
+ * Recarga los datos del mes actual desde Supabase.
+ * Usa un debounce para evitar múltiples recargas seguidas.
+ * @param {boolean} forzar — si true, ignora el debounce
+ */
 async function recargarDatosSiNecesario(forzar = false) {
   const ahora = Date.now();
-  const MIN_INTERVALO_MS = 2000;
+  const MIN_INTERVALO_MS = 2000; // Mínimo 2 segundos entre recargas
 
   if (!forzar && (ahora - AppState.ultimaRecarga) < MIN_INTERVALO_MS) {
-    return;
+    return; // Demasiado pronto, saltar
   }
 
   if (AppState.cargando || AppState.guardando) return;
@@ -1077,6 +921,11 @@ async function recargarDatosSiNecesario(forzar = false) {
   await renderMes();
 }
 
+/**
+ * Maneja el evento visibilitychange para recargar datos
+ * cuando el usuario vuelve a la app (ej: cambia de pestaña,
+ * desbloquea el móvil, vuelve desde otra app).
+ */
 function iniciarRecargaAlVolver() {
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
@@ -1085,10 +934,13 @@ function iniciarRecargaAlVolver() {
     }
   });
 
+  // También recargar al recuperar el foco (navegadores de escritorio)
   window.addEventListener('focus', () => {
     recargarDatosSiNecesario();
   });
 
+  // Recarga periódica cada 60s si la app está visible
+  // (por si Realtime pierde la conexión temporalmente)
   setInterval(() => {
     if (document.visibilityState === 'visible' && AppState.usarSupabase) {
       recargarDatosSiNecesario();
@@ -1106,6 +958,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   await renderMes();
   initSwipe();
 
+  // Sincronización en tiempo real entre dispositivos
   iniciarRealtimeSync();
   iniciarRecargaAlVolver();
 
@@ -1114,11 +967,4 @@ document.addEventListener('DOMContentLoaded', async () => {
   DOM.btnNext.addEventListener('click', irMesSiguiente);
   DOM.btnNewReservation.addEventListener('click', abrirNuevaReserva);
   DOM.overlay.addEventListener('click', cerrarDetalle);
-  
-  // Eventos nuevos para Rango y Estancia Mínima
-  DOM.btnMinNights.addEventListener('click', abrirEditarMinNoches);
-  DOM.btnCancelSelection.addEventListener('click', (e) => {
-    e.stopPropagation();
-    cancelarSeleccionRango();
-  });
 });
