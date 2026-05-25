@@ -222,3 +222,92 @@ async function actualizarPrecioDia(fecha, nuevoPrecio) {
     return false;
   }
 }
+
+/**
+ * Inserta o actualiza los precios para un rango de fechas (UPSERT masivo).
+ *
+ * @param {string} fechaInicio — 'YYYY-MM-DD'
+ * @param {string} fechaFin    — 'YYYY-MM-DD'
+ * @param {number} nuevoPrecio — Precio en €
+ * @returns {Promise<boolean>} true si se guardaron correctamente todos los precios
+ */
+async function actualizarPreciosRango(fechaInicio, fechaFin, nuevoPrecio) {
+  try {
+    // Generar todas las fechas en el rango (inclusive)
+    const fechas = [];
+    const actual = new Date(fechaInicio + 'T00:00:00');
+    const fin = new Date(fechaFin + 'T00:00:00');
+
+    while (actual <= fin) {
+      const anio = actual.getFullYear();
+      const mes = String(actual.getMonth() + 1).padStart(2, '0');
+      const dia = String(actual.getDate()).padStart(2, '0');
+      fechas.push(`${anio}-${mes}-${dia}`);
+      actual.setDate(actual.getDate() + 1);
+    }
+
+    const registros = fechas.map(fecha => ({
+      fecha,
+      precio: nuevoPrecio
+    }));
+
+    const { error } = await supabase
+      .from('precios_disponibles')
+      .upsert(registros, { onConflict: 'fecha' });
+
+    if (error) throw error;
+
+    console.log(`💰 Precios actualizados en rango: ${fechaInicio} al ${fechaFin} → ${nuevoPrecio}€`);
+    return true;
+  } catch (err) {
+    console.error('❌ Error al actualizar rango de precios:', err.message);
+    return false;
+  }
+}
+
+/**
+ * Obtiene el valor de estancia mínima (mínimo de noches) configurado.
+ *
+ * @returns {Promise<number>} Mínimo de noches
+ */
+async function obtenerMinNoches() {
+  try {
+    const { data, error } = await supabase
+      .from('configuracion')
+      .select('valor')
+      .eq('clave', 'min_noches')
+      .single();
+
+    if (error) throw error;
+    return data ? parseInt(data.valor, 10) : 2;
+  } catch (err) {
+    console.warn('⚠️ No se pudo obtener min_noches de Supabase, usando valor local/defecto:', err.message);
+    const cached = localStorage.getItem('demo_min_noches');
+    return cached ? parseInt(cached, 10) : 2;
+  }
+}
+
+/**
+ * Actualiza el valor de estancia mínima (mínimo de noches) configurado.
+ *
+ * @param {number} noches — Mínimo de noches
+ * @returns {Promise<boolean>} true si se guardó correctamente
+ */
+async function actualizarMinNoches(noches) {
+  try {
+    const { error } = await supabase
+      .from('configuracion')
+      .upsert(
+        { clave: 'min_noches', valor: noches.toString() },
+        { onConflict: 'clave' }
+      );
+
+    if (error) throw error;
+    console.log(`⚙️ Mínimo de noches actualizado: ${noches}`);
+    return true;
+  } catch (err) {
+    console.error('❌ Error al guardar min_noches en Supabase:', err.message);
+    localStorage.setItem('demo_min_noches', noches.toString());
+    return false;
+  }
+}
