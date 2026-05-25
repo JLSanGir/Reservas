@@ -20,7 +20,8 @@ const AppState = {
   realtimeChannel: null,            // Canal de Supabase Realtime
   ultimaRecarga: 0,                 // Timestamp de la última recarga
   
-  // Estancia mínima
+  // Rango de selección táctil y estancia mínima
+  seleccionRango: { inicio: null, fin: null },
   minNoches: 2,
 };
 
@@ -243,6 +244,9 @@ function cachearDOM() {
   // Nuevos DOM Cached Elements
   DOM.btnMinNights = $('#btn-min-nights');
   DOM.valMinNights = $('#val-min-nights');
+  DOM.selectionHelper = $('#selection-helper');
+  DOM.selectionHelperText = $('#selection-helper-text');
+  DOM.btnCancelSelection = $('#btn-cancel-selection');
 }
 
 // ------------------------------------------------------------
@@ -310,6 +314,10 @@ function renderCeldas(dias) {
   let html = '';
   let idx = 0;
 
+  // Rango de fechas seleccionado en la UI
+  const selInicio = AppState.seleccionRango.inicio;
+  const selFin = AppState.seleccionRango.fin;
+
   for (const d of dias) {
     const delay = Math.min(idx * 12, 350);
 
@@ -330,8 +338,23 @@ function renderCeldas(dias) {
     } else {
       const todayClass = d.fecha === hoyStr ? ' today' : '';
       
+      // Clasificación de rango
+      let rangeClass = '';
+      if (selInicio && d.fecha === selInicio) {
+        rangeClass = ' selection-start';
+      } else if (selFin && d.fecha === selFin) {
+        rangeClass = ' selection-end';
+      } else if (selInicio && selFin) {
+        const f = d.fecha;
+        const minF = selInicio < selFin ? selInicio : selFin;
+        const maxF = selInicio < selFin ? selFin : selInicio;
+        if (f > minF && f < maxF) {
+          rangeClass = ' in-range';
+        }
+      }
+
       html += `
-        <div class="day-cell available${todayClass}"
+        <div class="day-cell available${todayClass}${rangeClass}"
              style="--delay:${delay}ms"
              onclick="manejarClickDiaDisponible('${d.fecha}', ${d.precioBase})">
           <span class="day-number">${d.dia}</span>
@@ -349,13 +372,69 @@ function renderCeldas(dias) {
 // ------------------------------------------------------------
 
 function manejarClickDiaRenta(reservaId) {
+  // Cancelar selección en curso si la hay
+  if (AppState.seleccionRango.inicio) {
+    cancelarSeleccionRango();
+  }
   abrirDetalle(reservaId);
 }
 
 function manejarClickDiaDisponible(fecha, precioBase) {
+  const sel = AppState.seleccionRango;
+
+  // Vibración suave
   if (navigator.vibrate) navigator.vibrate(10);
-  const precioActual = AppState.preciosCustom.get(fecha) ?? precioBase;
-  abrirEditarDia(fecha, precioActual);
+
+  if (!sel.inicio) {
+    // Primer click: Marcar inicio
+    sel.inicio = fecha;
+    sel.fin = null;
+
+    if (DOM.selectionHelper) {
+      DOM.selectionHelperText.textContent = `Inicio: ${formatearFechaCorta(fecha)}. Selecciona el día final...`;
+      DOM.selectionHelper.classList.add('active');
+    }
+
+    renderCeldas(AppState.mesActual.dias);
+  } else {
+    // Segundo click: Mismo día → abre un solo día. Otro día → abre rango
+    if (sel.inicio === fecha) {
+      const precioActual = AppState.preciosCustom.get(fecha) ?? precioBase;
+      cancelarSeleccionRango();
+      abrirEditarDia(fecha, precioActual);
+    } else {
+      sel.fin = fecha;
+
+      // Ordenar cronológicamente
+      if (sel.inicio > sel.fin) {
+        const temp = sel.inicio;
+        sel.inicio = sel.fin;
+        sel.fin = temp;
+      }
+
+      renderCeldas(AppState.mesActual.dias);
+
+      if (DOM.selectionHelper) {
+        DOM.selectionHelper.classList.remove('active');
+      }
+
+      // Abrir Bottom Sheet
+      setTimeout(() => {
+        abrirEditarRango(sel.inicio, sel.fin);
+      }, 150);
+    }
+  }
+}
+
+function cancelarSeleccionRango() {
+  AppState.seleccionRango.inicio = null;
+  AppState.seleccionRango.fin = null;
+  if (DOM.selectionHelper) {
+    DOM.selectionHelper.classList.remove('active');
+  }
+  if (AppState.mesActual) {
+    renderCeldas(AppState.mesActual.dias);
+  }
 }
 
 // ------------------------------------------------------------
@@ -371,6 +450,7 @@ function cerrarDetalle() {
   DOM.overlay.classList.remove('active');
   DOM.bottomSheet.classList.remove('active');
   AppState.diaEditando = null;
+  cancelarSeleccionRango();
 }
 
 function abrirDetalle(reservaId) {
@@ -643,6 +723,7 @@ async function guardarPreciosRangoSeleccionado(event, inicio, fin) {
       localStorage.setItem('demo_precios_custom', JSON.stringify(Array.from(demoPreciosCustom.entries())));
     }
 
+    cancelarSeleccionRango();
     cerrarDetalle();
     mostrarToast('Precios actualizados en rango');
     await renderMes({ recargarDatos: false });
@@ -915,6 +996,30 @@ async function irMesSiguiente() {
   await renderMes('left');
 }
 
+// Soporte de swipe táctil
+let touchStartX = 0;
+let touchStartY = 0;
+
+function initSwipe() {
+  const grid = DOM.calendarGrid;
+
+  grid.addEventListener('touchstart', (e) => {
+    touchStartX = e.changedTouches[0].screenX;
+    touchStartY = e.changedTouches[0].screenY;
+  }, { passive: true });
+
+  grid.addEventListener('touchend', (e) => {
+    const dx = e.changedTouches[0].screenX - touchStartX;
+    const dy = e.changedTouches[0].screenY - touchStartY;
+
+    // Solo swipe horizontal si dx > dy
+    if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy)) {
+      if (dx < 0) irMesSiguiente();
+      else        irMesAnterior();
+    }
+  }, { passive: true });
+}
+
 // ------------------------------------------------------------
 // SINCRONIZACIÓN EN TIEMPO REAL (Supabase Realtime)
 // ------------------------------------------------------------
@@ -999,6 +1104,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   cachearDOM();
   detectarModo();
   await renderMes();
+  initSwipe();
 
   iniciarRealtimeSync();
   iniciarRecargaAlVolver();
@@ -1009,6 +1115,10 @@ document.addEventListener('DOMContentLoaded', async () => {
   DOM.btnNewReservation.addEventListener('click', abrirNuevaReserva);
   DOM.overlay.addEventListener('click', cerrarDetalle);
   
-  // Evento de estancia mínima
+  // Eventos nuevos para Rango y Estancia Mínima
   DOM.btnMinNights.addEventListener('click', abrirEditarMinNoches);
+  DOM.btnCancelSelection.addEventListener('click', (e) => {
+    e.stopPropagation();
+    cancelarSeleccionRango();
+  });
 });
