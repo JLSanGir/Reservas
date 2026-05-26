@@ -45,7 +45,7 @@ async function obtenerReservasMes(mes, anio) {
     }));
   } catch (err) {
     console.error('❌ Error al obtener reservas:', err.message);
-    return [];
+    throw err;
   }
 }
 
@@ -77,7 +77,7 @@ async function obtenerPreciosMes(mes, anio) {
     return mapa;
   } catch (err) {
     console.error('❌ Error al obtener precios:', err.message);
-    return new Map();
+    throw err;
   }
 }
 

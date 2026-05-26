@@ -93,6 +93,29 @@ CREATE POLICY "Acceso completo precios"
   ON precios_disponibles FOR ALL
   USING (true) WITH CHECK (true);
 
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'reservas'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE reservas;
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_publication_tables
+    WHERE pubname = 'supabase_realtime'
+      AND schemaname = 'public'
+      AND tablename = 'precios_disponibles'
+  ) THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE precios_disponibles;
+  END IF;
+END $$;
+
 -- ────────────────────────────────────────────────────────────
 -- 6. DATOS DE EJEMPLO (opcional — borrar en producción)
 -- ────────────────────────────────────────────────────────────
