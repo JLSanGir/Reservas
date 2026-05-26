@@ -17,6 +17,9 @@ const AppState = {
   diaEditando: null,
   guardando: false,
   usarSupabase: false,              // Se activa si la config es válida
+  sincronizando: false,
+  canalRealtime: null,
+  ultimoErrorCarga: null,
 };
 
 // Mapa rápido de reservas por ID para el BottomSheet
@@ -46,7 +49,8 @@ function etiquetaOrigenReserva(origen) {
 function detectarModo() {
   // Comprobar si supabaseClient.js cargó y tiene URL real
   if (typeof SUPABASE_URL !== 'undefined' &&
-      !SUPABASE_URL.includes('TU_PROYECTO')) {
+      !SUPABASE_URL.includes('TU_PROYECTO') &&
+      typeof supabase !== 'undefined') {
     AppState.usarSupabase = true;
     console.log('🔗 Modo: Supabase (producción)');
   } else {
@@ -66,6 +70,7 @@ function detectarModo() {
  */
 async function cargarDatosMes() {
   AppState.cargando = true;
+  AppState.ultimoErrorCarga = null;
   mostrarLoading(true);
 
   try {
@@ -85,7 +90,9 @@ async function cargarDatosMes() {
       reservasPorId.set(r.id, r);
     }
   } catch (err) {
+    AppState.ultimoErrorCarga = err;
     console.error('❌ Error cargando datos:', err);
+    mostrarToast('No se pudo sincronizar el calendario. Reintentando al volver a conectar.');
   } finally {
     AppState.cargando = false;
     mostrarLoading(false);
@@ -272,6 +279,67 @@ function cargarDatosDemo() {
   // Hacer una copia del array para que modificaciones directas no alteren la base
   AppState.reservas = [...demoReservas];
   AppState.preciosCustom = demoPreciosCustom;
+}
+
+function limpiarSuscripcionTiempoReal() {
+  if (!AppState.canalRealtime || !AppState.usarSupabase) return;
+  supabase.removeChannel(AppState.canalRealtime);
+  AppState.canalRealtime = null;
+}
+
+async function sincronizarMesActual({ forzar = false } = {}) {
+  if (!AppState.usarSupabase) return;
+  if (AppState.guardando && !forzar) return;
+  if (AppState.sincronizando) return;
+
+  AppState.sincronizando = true;
+
+  try {
+    await renderMes(null, { recargarDatos: true });
+  } catch (err) {
+    console.error('❌ Error sincronizando calendario:', err);
+  } finally {
+    AppState.sincronizando = false;
+  }
+}
+
+function programarSincronizacionTiempoReal() {
+  if (!AppState.usarSupabase) return;
+  clearTimeout(programarSincronizacionTiempoReal.timeoutId);
+  programarSincronizacionTiempoReal.timeoutId = setTimeout(() => {
+    sincronizarMesActual();
+  }, 150);
+}
+
+function iniciarSincronizacionTiempoReal() {
+  if (!AppState.usarSupabase || AppState.canalRealtime) return;
+
+  const channelName = `calendario-reservas-${Date.now()}`;
+  AppState.canalRealtime = supabase
+    .channel(channelName)
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas' }, () => {
+      programarSincronizacionTiempoReal();
+    })
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'precios_disponibles' }, () => {
+      programarSincronizacionTiempoReal();
+    })
+    .subscribe((status) => {
+      console.log('🔄 Estado sincronización realtime:', status);
+    });
+}
+
+function inicializarAutoRecarga() {
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) sincronizarMesActual({ forzar: true });
+  });
+
+  window.addEventListener('focus', () => {
+    sincronizarMesActual({ forzar: true });
+  });
+
+  window.addEventListener('online', () => {
+    sincronizarMesActual({ forzar: true });
+  });
 }
 
 // ------------------------------------------------------------
@@ -636,6 +704,7 @@ async function guardarPrecioDiaSeleccionado(event) {
     }
     AppState.preciosCustom.set(AppState.diaEditando.fecha, precio);
     if (!AppState.usarSupabase && demoPreciosCustom) {
+      demoPreciosCustom.set(AppState.diaEditando.fecha, precio);
       localStorage.setItem('demo_precios_custom', JSON.stringify(Array.from(demoPreciosCustom.entries())));
     }
 
@@ -865,6 +934,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   cachearDOM();
   detectarModo();
   await renderMes();
+  iniciarSincronizacionTiempoReal();
+  inicializarAutoRecarga();
   initSwipe();
 
   // Eventos
@@ -873,3 +944,5 @@ document.addEventListener('DOMContentLoaded', async () => {
   DOM.btnNewReservation.addEventListener('click', abrirNuevaReserva);
   DOM.overlay.addEventListener('click', cerrarDetalle);
 });
+
+window.addEventListener('beforeunload', limpiarSuscripcionTiempoReal);
