@@ -1,7 +1,7 @@
 // ============================================================
 // RESERVAS — UI: Renderizado del Calendario
 // Componente reactivo, mobile-first, con BottomSheet
-// Soporta Supabase (producción) y datos demo (desarrollo)
+// Supabase obligatorio como fuente unica de datos
 // ============================================================
 
 // ------------------------------------------------------------
@@ -16,7 +16,6 @@ const AppState = {
   cargando: false,                  // Flag de loading
   diaEditando: null,
   guardando: false,
-  usarSupabase: false,              // Se activa si la config es válida
   sincronizando: false,
   canalRealtime: null,
   ultimoErrorCarga: null,
@@ -41,32 +40,11 @@ function etiquetaOrigenReserva(origen) {
 }
 
 // ------------------------------------------------------------
-// DATOS DE DEMO
-// ------------------------------------------------------------
-// ------------------------------------------------------------
-// DETECCIÓN DE MODO: Supabase vs Demo
-// ------------------------------------------------------------
-function detectarModo() {
-  // Comprobar si supabaseClient.js cargó y tiene URL real
-  if (typeof SUPABASE_URL !== 'undefined' &&
-      !SUPABASE_URL.includes('TU_PROYECTO') &&
-      typeof supabase !== 'undefined') {
-    AppState.usarSupabase = true;
-    console.log('🔗 Modo: Supabase (producción)');
-  } else {
-    AppState.usarSupabase = false;
-    console.log('🧪 Modo: Demo (datos locales)');
-  }
-}
-
-// ------------------------------------------------------------
-// CARGA DE DATOS: Supabase o Demo
+// CARGA DE DATOS
 // ------------------------------------------------------------
 
 /**
- * Obtiene reservas y precios del mes actual.
- * Si Supabase está configurado, consulta la BD.
- * Si no, usa datos demo locales.
+ * Obtiene reservas y precios del mes actual desde Supabase.
  */
 async function cargarDatosMes() {
   AppState.cargando = true;
@@ -74,25 +52,19 @@ async function cargarDatosMes() {
   mostrarLoading(true);
 
   try {
-    if (AppState.usarSupabase) {
-      // ── Supabase ──
-      const { reservas, precios } = await obtenerDatosMes(AppState.mes, AppState.anio);
-      AppState.reservas      = reservas;
-      AppState.preciosCustom = precios;
-    } else {
-      // ── Demo ──
-      cargarDatosDemo();
-    }
+    const { reservas, precios } = await obtenerDatosMes(AppState.mes, AppState.anio);
+    AppState.reservas = reservas;
+    AppState.preciosCustom = precios;
 
-    // Indexar reservas por ID para BottomSheet
     reservasPorId.clear();
     for (const r of AppState.reservas) {
       reservasPorId.set(r.id, r);
     }
   } catch (err) {
     AppState.ultimoErrorCarga = err;
-    console.error('❌ Error cargando datos:', err);
-    mostrarToast('No se pudo sincronizar el calendario. Reintentando al volver a conectar.');
+    console.error('Error cargando datos:', err);
+    mostrarToast('No se pudo sincronizar el calendario. Revisa la conexion con Supabase.');
+    throw err;
   } finally {
     AppState.cargando = false;
     mostrarLoading(false);
@@ -100,7 +72,7 @@ async function cargarDatosMes() {
 }
 
 /**
- * Muestra/oculta indicador de carga en la cuadrícula.
+ * Muestra/oculta indicador de carga en la cuadricula.
  */
 function mostrarLoading(visible) {
   if (!DOM.calendarGrid) return;
@@ -108,187 +80,39 @@ function mostrarLoading(visible) {
     DOM.calendarGrid.innerHTML = `
       <div style="grid-column: 1 / -1; text-align: center; padding: 40px 0;
                   color: var(--text-muted); font-size: 0.85rem;">
-        <div style="margin-bottom: 8px; font-size: 1.2rem;">⏳</div>
+        <div style="margin-bottom: 8px; font-size: 1.2rem;">...</div>
         Cargando...
       </div>`;
   }
 }
 
-// ------------------------------------------------------------
-// DATOS DE DEMO (fallback cuando no hay Supabase)
-// ------------------------------------------------------------
-let demoReservas = null;
-let demoPreciosCustom = null;
+function mostrarErrorSupabaseInicial(err) {
+  console.error('No se pudo inicializar Supabase:', err);
+  AppState.ultimoErrorCarga = err;
 
-function cargarDatosDemo() {
-  // Reservas globales (todos los meses) — se inicializan una única vez
-  // Intentar cargar reservas desde localStorage
-  if (!demoReservas) {
-    demoReservas = [
-      crearReserva({
-        id: 'res-001',
-        fechaInicio: '2026-05-03',
-        fechaFin:    '2026-05-07',
-        huespedes:   4,
-        precioTotal: 400,
-        nombreCliente: 'García López',
-        telefono: '+34 612 345 678',
-        notas: 'Check-in tardío (22:00)',
-      }),
-      crearReserva({
-        id: 'res-002',
-        fechaInicio: '2026-05-15',
-        fechaFin:    '2026-05-20',
-        huespedes:   2,
-        precioTotal: 500,
-        nombreCliente: 'Martín Ruiz',
-        telefono: '+34 698 765 432',
-      }),
-      crearReserva({
-        id: 'res-003',
-        fechaInicio: '2026-05-28',
-        fechaFin:    '2026-06-02',
-        huespedes:   3,
-        precioTotal: 600,
-        nombreCliente: 'Fernández Díaz',
-        telefono: '+34 654 321 987',
-        notas: 'Necesitan cuna',
-      }),
-      crearReserva({
-        id: 'res-004',
-        fechaInicio: '2026-06-10',
-        fechaFin:    '2026-06-15',
-        huespedes:   5,
-        precioTotal: 750,
-        nombreCliente: 'Rodríguez Sanz',
-      }),
-      crearReserva({
-        id: 'res-005',
-        fechaInicio: '2026-06-22',
-        fechaFin:    '2026-06-28',
-        huespedes:   2,
-        precioTotal: 680,
-        nombreCliente: 'López Herrera',
-        telefono: '+34 611 222 333',
-      }),
-      crearReserva({
-        id: 'res-006',
-        fechaInicio: '2026-04-18',
-        fechaFin:    '2026-04-23',
-        huespedes:   4,
-        precioTotal: 450,
-        nombreCliente: 'Navarro Gil',
-      }),
-    ];
-    const cachedReservas = localStorage.getItem('demo_reservas');
-    if (cachedReservas) {
-      try {
-        const parsed = JSON.parse(cachedReservas);
-        demoReservas = parsed.map(r => crearReserva(r));
-      } catch (e) {
-        console.error('Error parseando demo_reservas de localStorage:', e);
-      }
-    }
-
-    if (!demoReservas) {
-      demoReservas = [
-        crearReserva({
-          id: 'res-001',
-          fechaInicio: '2026-05-03',
-          fechaFin:    '2026-05-07',
-          huespedes:   4,
-          precioTotal: 400,
-          nombreCliente: 'García López',
-          telefono: '+34 612 345 678',
-          notas: 'Check-in tardío (22:00)',
-        }),
-        crearReserva({
-          id: 'res-002',
-          fechaInicio: '2026-05-15',
-          fechaFin:    '2026-05-20',
-          huespedes:   2,
-          precioTotal: 500,
-          nombreCliente: 'Martín Ruiz',
-          telefono: '+34 698 765 432',
-        }),
-        crearReserva({
-          id: 'res-003',
-          fechaInicio: '2026-05-28',
-          fechaFin:    '2026-06-02',
-          huespedes:   3,
-          precioTotal: 600,
-          nombreCliente: 'Fernández Díaz',
-          telefono: '+34 654 321 987',
-          notas: 'Necesitan cuna',
-        }),
-        crearReserva({
-          id: 'res-004',
-          fechaInicio: '2026-06-10',
-          fechaFin:    '2026-06-15',
-          huespedes:   5,
-          precioTotal: 750,
-          nombreCliente: 'Rodríguez Sanz',
-        }),
-        crearReserva({
-          id: 'res-005',
-          fechaInicio: '2026-06-22',
-          fechaFin:    '2026-06-28',
-          huespedes:   2,
-          precioTotal: 680,
-          nombreCliente: 'López Herrera',
-          telefono: '+34 611 222 333',
-        }),
-        crearReserva({
-          id: 'res-006',
-          fechaInicio: '2026-04-18',
-          fechaFin:    '2026-04-23',
-          huespedes:   4,
-          precioTotal: 450,
-          nombreCliente: 'Navarro Gil',
-        }),
-      ];
-      localStorage.setItem('demo_reservas', JSON.stringify(demoReservas));
-    }
+  if (DOM.calendarGrid) {
+    DOM.calendarGrid.innerHTML = `
+      <div style="grid-column: 1 / -1; text-align: center; padding: 40px 16px;
+                  color: var(--text-muted); font-size: 0.9rem; line-height: 1.5;">
+        <strong style="display:block; color: var(--text-main); margin-bottom: 8px;">No se pudo conectar con Supabase</strong>
+        La app necesita Supabase para cargar y guardar reservas. Recarga la pagina o revisa la conexion.
+      </div>`;
   }
 
-  // Intentar cargar precios desde localStorage
-  if (!demoPreciosCustom) {
-    demoPreciosCustom = new Map([
-      ['2026-05-01', 95],
-      ['2026-05-02', 95],
-    ]);
-    const cachedPrecios = localStorage.getItem('demo_precios_custom');
-    if (cachedPrecios) {
-      try {
-        const parsed = JSON.parse(cachedPrecios);
-        demoPreciosCustom = new Map(parsed);
-      } catch (e) {
-        console.error('Error parseando demo_precios_custom de localStorage:', e);
-      }
-    }
+  [DOM.btnPrev, DOM.btnNext, DOM.btnNewReservation].forEach(btn => {
+    if (btn) btn.disabled = true;
+  });
 
-    if (!demoPreciosCustom) {
-      demoPreciosCustom = new Map([
-        ['2026-05-01', 95],
-        ['2026-05-02', 95],
-      ]);
-      localStorage.setItem('demo_precios_custom', JSON.stringify(Array.from(demoPreciosCustom.entries())));
-    }
-  }
-
-  // Hacer una copia del array para que modificaciones directas no alteren la base
-  AppState.reservas = [...demoReservas];
-  AppState.preciosCustom = demoPreciosCustom;
+  mostrarToast('Supabase no esta disponible. No se usaran datos locales.');
 }
 
 function limpiarSuscripcionTiempoReal() {
-  if (!AppState.canalRealtime || !AppState.usarSupabase) return;
+  if (!AppState.canalRealtime) return;
   supabase.removeChannel(AppState.canalRealtime);
   AppState.canalRealtime = null;
 }
 
 async function sincronizarMesActual({ forzar = false } = {}) {
-  if (!AppState.usarSupabase) return;
   if (AppState.guardando && !forzar) return;
   if (AppState.sincronizando) return;
 
@@ -304,7 +128,6 @@ async function sincronizarMesActual({ forzar = false } = {}) {
 }
 
 function programarSincronizacionTiempoReal() {
-  if (!AppState.usarSupabase) return;
   clearTimeout(programarSincronizacionTiempoReal.timeoutId);
   programarSincronizacionTiempoReal.timeoutId = setTimeout(() => {
     sincronizarMesActual();
@@ -312,7 +135,7 @@ function programarSincronizacionTiempoReal() {
 }
 
 function iniciarSincronizacionTiempoReal() {
-  if (!AppState.usarSupabase || AppState.canalRealtime) return;
+  if (AppState.canalRealtime) return;
 
   const channelName = `calendario-reservas-${Date.now()}`;
   AppState.canalRealtime = supabase
@@ -380,7 +203,7 @@ function cachearDOM() {
  * @param {'left'|'right'|null} direction — dirección de la animación
  */
 async function renderMes(direction = null, { recargarDatos = true } = {}) {
-  // Cargar datos solo cuando hace falta consultar Supabase/demo.
+  // Cargar datos solo cuando hace falta consultar Supabase.
   // Tras borrar una reserva ya tenemos AppState.reservas limpio, así que podemos
   // regenerar el mes desde ese estado sin pisarlo con una lectura antigua.
   if (recargarDatos) {
@@ -601,12 +424,8 @@ function abrirDetalle(reservaId) {
   abrirBottomSheet();
 }
 
-function quitarReservaDelEstadoLocal(reservaId) {
+function quitarReservaDelEstado(reservaId) {
   AppState.reservas = AppState.reservas.filter(r => r.id !== reservaId);
-  if (!AppState.usarSupabase && demoReservas) {
-    demoReservas = demoReservas.filter(r => r.id !== reservaId);
-    localStorage.setItem('demo_reservas', JSON.stringify(demoReservas));
-  }
   reservasPorId.delete(reservaId);
   AppState.mesActual = null;
 }
@@ -625,15 +444,11 @@ async function confirmarEliminarReserva(reservaId) {
   }
 
   try {
-    let ok = true;
-    if (AppState.usarSupabase) {
-      ok = await eliminarReserva(reservaId);
-    }
-
+    const ok = await eliminarReserva(reservaId);
     if (!ok) throw new Error('No se pudo eliminar la reserva.');
 
-    // Limpiar localmente la reserva de la memoria para una actualización visual reactiva e instantánea
-    quitarReservaDelEstadoLocal(reservaId);
+    // Actualizar la memoria de la vista para una respuesta visual inmediata.
+    quitarReservaDelEstado(reservaId);
 
     cerrarDetalle();
     mostrarToast('Reserva eliminada correctamente');
@@ -698,15 +513,10 @@ async function guardarPrecioDiaSeleccionado(event) {
   setFormBusy('#price-form', true);
 
   try {
-    if (AppState.usarSupabase) {
-      const ok = await actualizarPrecioDia(AppState.diaEditando.fecha, precio);
-      if (!ok) throw new Error('No se pudo guardar el precio.');
-    }
+    const ok = await actualizarPrecioDia(AppState.diaEditando.fecha, precio);
+    if (!ok) throw new Error('No se pudo guardar el precio.');
+
     AppState.preciosCustom.set(AppState.diaEditando.fecha, precio);
-    if (!AppState.usarSupabase && demoPreciosCustom) {
-      demoPreciosCustom.set(AppState.diaEditando.fecha, precio);
-      localStorage.setItem('demo_precios_custom', JSON.stringify(Array.from(demoPreciosCustom.entries())));
-    }
 
     cerrarDetalle();
     mostrarToast('Precio actualizado');
@@ -809,25 +619,7 @@ async function confirmarNuevaReserva(event) {
   setFormBusy('#reservation-form', true);
 
   try {
-    let nuevaRes = null;
-
-    if (AppState.usarSupabase) {
-      nuevaRes = await guardarReserva(datos);
-    } else {
-      if (haySolapamientoLocal(datos.fechaInicio, datos.fechaFin)) {
-        const conflicto = new Error('Las fechas seleccionadas ya están ocupadas');
-        conflicto.code = '23P01';
-        throw conflicto;
-      }
-      nuevaRes = crearReserva({
-        id: `demo-${Date.now()}`,
-        ...datos,
-      });
-      if (demoReservas) {
-        demoReservas.push(nuevaRes);
-        localStorage.setItem('demo_reservas', JSON.stringify(demoReservas));
-      }
-    }
+    const nuevaRes = await guardarReserva(datos);
 
     AppState.reservas.push(nuevaRes);
     reservasPorId.set(nuevaRes.id, nuevaRes);
@@ -856,9 +648,6 @@ function validarReserva(datos) {
   return '';
 }
 
-function haySolapamientoLocal(fechaInicio, fechaFin) {
-  return AppState.reservas.some(r => fechaInicio < r.fechaFin && fechaFin > r.fechaInicio);
-}
 
 function sumarDias(fecha, dias) {
   const date = new Date(fecha + 'T00:00:00');
@@ -932,11 +721,17 @@ function initSwipe() {
 
 document.addEventListener('DOMContentLoaded', async () => {
   cachearDOM();
-  detectarModo();
-  await renderMes();
-  iniciarSincronizacionTiempoReal();
-  inicializarAutoRecarga();
-  initSwipe();
+
+  try {
+    await inicializarClienteSupabase();
+    await renderMes();
+    iniciarSincronizacionTiempoReal();
+    inicializarAutoRecarga();
+    initSwipe();
+  } catch (err) {
+    mostrarErrorSupabaseInicial(err);
+    return;
+  }
 
   // Eventos
   DOM.btnPrev.addEventListener('click', irMesAnterior);
