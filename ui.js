@@ -604,7 +604,7 @@ async function confirmarNuevaReserva(event) {
   const datos = {
     fechaInicio: $('#booking-start').value,
     fechaFin: $('#booking-end').value,
-    huespedes: Number($('#booking-guests').value),
+    huespedes: parseInt($('#booking-guests').value, 10),
     precioTotal: Number($('#booking-price').value),
     origen: $('#booking-origin').value,
   };
