@@ -562,6 +562,36 @@ body::before {
   box-shadow: none;
 }
 
+.sheet-actions {
+  display: grid;
+  gap: 10px;
+  margin-top: 18px;
+}
+
+.secondary-action {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform var(--transition-fast), opacity var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.secondary-action:active {
+  transform: scale(0.98);
+  background: var(--accent-available-soft);
+  border-color: rgba(79, 124, 255, 0.28);
+}
+
+.secondary-action:disabled {
+  cursor: wait;
+  opacity: 0.68;
+}
+
 .danger-action {
   width: 100%;
   min-height: 48px;
@@ -585,6 +615,10 @@ body::before {
 .danger-action:disabled {
   cursor: wait;
   opacity: 0.68;
+}
+
+.sheet-actions .danger-action {
+  margin-top: 0;
 }
 
 .form-error {

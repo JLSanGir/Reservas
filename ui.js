@@ -335,6 +335,15 @@ function formatearFechaCorta(fechaStr) {
   return `${parseInt(d)} ${mesesCortos[parseInt(m) - 1]}`;
 }
 
+function escaparHtml(valor) {
+  return String(valor ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#39;');
+}
+
 // ------------------------------------------------------------
 // NAVEGACIÓN
 // ------------------------------------------------------------
@@ -417,9 +426,14 @@ function abrirDetalle(reservaId) {
       ` : ''}
     </div>
 
-    <button class="danger-action" type="button" onclick="confirmarEliminarReserva('${r.id}')">
-      Borrar Reserva
-    </button>`;
+    <div class="sheet-actions">
+      <button class="secondary-action" type="button" onclick="abrirEditarReserva('${r.id}')">
+        Editar Reserva
+      </button>
+      <button class="danger-action" type="button" onclick="confirmarEliminarReserva('${r.id}')">
+        Borrar Reserva
+      </button>
+    </div>`;
 
   abrirBottomSheet();
 }
@@ -463,6 +477,113 @@ async function confirmarEliminarReserva(reservaId) {
     }
   } finally {
     AppState.guardando = false;
+  }
+}
+
+function abrirEditarReserva(reservaId) {
+  const r = reservasPorId.get(reservaId);
+  if (!r) return;
+
+  const origen = normalizarOrigenReserva(r.origen);
+
+  DOM.bottomSheet.innerHTML = `
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">Editar reserva</div>
+    <form class="sheet-form" id="edit-reservation-form">
+      <div class="form-field">
+        <label for="booking-client">Huésped</label>
+        <input id="booking-client" type="text" value="${escaparHtml(r.nombreCliente || '')}">
+      </div>
+
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="booking-start">Check-in</label>
+          <input id="booking-start" type="date" value="${escaparHtml(r.fechaInicio)}" required>
+        </div>
+        <div class="form-field">
+          <label for="booking-end">Check-out</label>
+          <input id="booking-end" type="date" value="${escaparHtml(r.fechaFin)}" required>
+        </div>
+      </div>
+
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="booking-guests">Huéspedes</label>
+          <input id="booking-guests" type="number" min="1" max="20" step="1" inputmode="numeric" value="${r.huespedes}" required>
+        </div>
+        <div class="form-field">
+          <label for="booking-price">Precio total</label>
+          <div class="input-with-suffix">
+            <input id="booking-price" type="number" min="0" step="1" inputmode="decimal" value="${r.precioTotal}" required>
+            <span>€</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="form-field">
+        <label for="booking-origin">Origen</label>
+        <select id="booking-origin" required>
+          <option value="BOOKING" ${origen === 'BOOKING' ? 'selected' : ''}>BOOKING</option>
+          <option value="AIRBNB" ${origen === 'AIRBNB' ? 'selected' : ''}>AIRBNB</option>
+          <option value="PROPIO" ${origen === 'PROPIO' ? 'selected' : ''}>PROPIO</option>
+          <option value="OTROS" ${origen === 'OTROS' ? 'selected' : ''}>OTROS</option>
+        </select>
+      </div>
+
+      <p class="form-error" id="reservation-form-error" aria-live="polite"></p>
+
+      <button class="primary-action" type="submit">Guardar cambios</button>
+    </form>`;
+
+  abrirBottomSheet();
+  $('#edit-reservation-form').addEventListener('submit', (event) => confirmarEditarReserva(event, reservaId));
+  $('#booking-start').addEventListener('change', prepararFechaSalida);
+  prepararFechaSalida();
+  $('#booking-client').focus();
+}
+
+async function confirmarEditarReserva(event, reservaId) {
+  event.preventDefault();
+  if (AppState.guardando) return;
+
+  const errorEl = $('#reservation-form-error');
+  const datos = {
+    nombreCliente: $('#booking-client').value,
+    fechaInicio: $('#booking-start').value,
+    fechaFin: $('#booking-end').value,
+    huespedes: parseInt($('#booking-guests').value, 10),
+    precioTotal: Number($('#booking-price').value),
+    origen: $('#booking-origin').value,
+  };
+
+  const errorValidacion = validarReserva(datos);
+  if (errorValidacion) {
+    errorEl.textContent = errorValidacion;
+    return;
+  }
+
+  AppState.guardando = true;
+  setFormBusy('#edit-reservation-form', true);
+
+  try {
+    const reservaActualizada = await actualizarReserva(reservaId, datos);
+
+    AppState.reservas = AppState.reservas.map(r =>
+      r.id === reservaId ? reservaActualizada : r
+    );
+    reservasPorId.set(reservaId, reservaActualizada);
+    AppState.mesActual = null;
+
+    cerrarDetalle();
+    mostrarToast('Reserva actualizada');
+    await renderMes(null, { recargarDatos: false });
+  } catch (err) {
+    errorEl.textContent = err.code === '23P01'
+      ? 'Las fechas seleccionadas ya están ocupadas'
+      : 'No se pudo actualizar la reserva. Inténtalo de nuevo.';
+  } finally {
+    AppState.guardando = false;
+    setFormBusy('#edit-reservation-form', false);
   }
 }
 

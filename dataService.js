@@ -102,6 +102,70 @@ async function obtenerDatosMes(mes, anio) {
 // ESCRITURA: Insertar / Actualizar
 // ────────────────────────────────────────────────────────────
 
+const FORMATO_FECHA_ISO = /^\d{4}-\d{2}-\d{2}$/;
+
+function normalizarTextoParaSupabase(valor) {
+  return valor == null ? '' : String(valor).trim();
+}
+
+function normalizarFechaParaSupabase(valor, nombreCampo) {
+  const fecha = normalizarTextoParaSupabase(valor);
+  if (!FORMATO_FECHA_ISO.test(fecha)) {
+    throw new Error(`${nombreCampo} debe tener formato YYYY-MM-DD.`);
+  }
+  return fecha;
+}
+
+function normalizarOrigenParaSupabase(origen) {
+  const origenNormalizado = normalizarTextoParaSupabase(origen || OrigenReserva.PROPIO).toUpperCase();
+  if (!Object.values(OrigenReserva).includes(origenNormalizado)) {
+    throw new Error(`Origen de reserva invalido: ${origen}`);
+  }
+  return origenNormalizado;
+}
+
+function construirPayloadReserva(datos) {
+  return {
+    fecha_inicio:   normalizarFechaParaSupabase(datos.fechaInicio, 'fechaInicio'),
+    fecha_fin:      normalizarFechaParaSupabase(datos.fechaFin, 'fechaFin'),
+    huespedes:      datos.huespedes,
+    precio_total:   datos.precioTotal,
+    nombre_cliente: normalizarTextoParaSupabase(datos.nombreCliente),
+    telefono:       normalizarTextoParaSupabase(datos.telefono),
+    notas:          normalizarTextoParaSupabase(datos.notas),
+    origen:         normalizarOrigenParaSupabase(datos.origen),
+  };
+}
+
+function crearReservaDesdeFila(data) {
+  return crearReserva({
+    id:            data.id,
+    fechaInicio:   data.fecha_inicio,
+    fechaFin:      data.fecha_fin,
+    huespedes:     data.huespedes,
+    precioTotal:   parseFloat(data.precio_total),
+    nombreCliente: data.nombre_cliente,
+    telefono:      data.telefono,
+    notas:         data.notas,
+    origen:        data.origen || OrigenReserva.PROPIO,
+  });
+}
+
+function manejarErrorReserva(error) {
+  console.error("Error de Supabase:", error);
+
+  if (error.code === '23P01') {
+    console.warn('⚠️ Conflicto: ya existe una reserva en esas fechas.');
+    const conflicto = new Error('Las fechas seleccionadas ya están ocupadas.');
+    conflicto.code = '23P01';
+    conflicto.supabaseError = error;
+    throw conflicto;
+  }
+
+  console.error('❌ Error al guardar reserva:', error.message);
+  throw error;
+}
+
 /**
  * Inserta una nueva reserva en Supabase.
  *
@@ -117,33 +181,13 @@ async function obtenerDatosMes(mes, anio) {
  */
 async function guardarReserva(datos) {
   try {
-    const origen = normalizarOrigenReserva(datos.origen);
-    const reservaInsert = {
-      fecha_inicio:   datos.fechaInicio,
-      fecha_fin:      datos.fechaFin,
-      huespedes:      datos.huespedes,
-      precio_total:   datos.precioTotal,
-      nombre_cliente: datos.nombreCliente || '',
-      telefono:       datos.telefono || '',
-      notas:          datos.notas || '',
-      origen,
-    };
-
     const { data, error } = await supabaseClient
       .from('reservas')
-      .insert(reservaInsert)
+      .insert(construirPayloadReserva(datos))
       .select()
       .single();
 
     if (error) {
-      console.error("Error de Supabase:", error);
-
-      if (error.code === '23P01') {
-        console.warn('⚠️ Conflicto: ya existe una reserva en esas fechas.');
-        const conflicto = new Error('Las fechas seleccionadas ya están ocupadas.');
-        conflicto.code = '23P01';
-        throw conflicto;
-      }
       throw error;
     }
 
@@ -153,32 +197,43 @@ async function guardarReserva(datos) {
 
     console.log('✅ Reserva guardada:', data.id);
 
-    return crearReserva({
-      id:            data.id,
-      fechaInicio:   data.fecha_inicio,
-      fechaFin:      data.fecha_fin,
-      huespedes:     data.huespedes,
-      precioTotal:   parseFloat(data.precio_total),
-      nombreCliente: data.nombre_cliente,
-      telefono:      data.telefono,
-      notas:         data.notas,
-      origen:        data.origen || OrigenReserva.PROPIO,
-    });
+    return crearReservaDesdeFila(data);
   } catch (error) {
-    console.error("Error de Supabase:", error);
-    console.error('❌ Error al guardar reserva:', error.message);
-    throw error;
+    manejarErrorReserva(error);
   }
 }
-function validarReserva(datos) {
-  if (!datos.fechaInicio || !datos.fechaFin) return 'Selecciona las fechas de entrada y salida.';
-  if (datos.fechaFin <= datos.fechaInicio) return 'La fecha de salida debe ser posterior a la entrada.';
-  if (!Number.isInteger(datos.huespedes) || datos.huespedes < 1) return 'Indica al menos 1 huésped.';
-  if (datos.huespedes > 20) return 'Indica un máximo de 20 huéspedes.';
-  if (!Number.isFinite(datos.precioTotal) || datos.precioTotal < 0) return 'Introduce un precio total válido.';
-  if (!Object.values(OrigenReserva).includes(datos.origen)) return 'Selecciona un origen valido.';
-  return '';
+
+/**
+ * Actualiza una reserva existente en Supabase.
+ *
+ * @param {string} id — UUID de la reserva
+ * @param {Object} datos — Campos actualizados de la reserva
+ * @returns {Promise<Object>} Reserva actualizada (modelo local)
+ */
+async function actualizarReserva(id, datos) {
+  try {
+    const { data, error } = await supabaseClient
+      .from('reservas')
+      .update(construirPayloadReserva(datos))
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      throw error;
+    }
+
+    if (!data || !data.id) {
+      throw new Error('Supabase no devolvió la reserva actualizada.');
+    }
+
+    console.log('✅ Reserva actualizada:', data.id);
+    return crearReservaDesdeFila(data);
+  } catch (error) {
+    manejarErrorReserva(error);
+  }
 }
+
 /**
  * Elimina una reserva por su ID.
  *
