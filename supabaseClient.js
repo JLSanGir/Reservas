@@ -14,7 +14,7 @@ const SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZ
 const SUPABASE_CDN_MAX_INTENTOS = 10;
 const SUPABASE_CDN_ESPERA_MS = 400;
 
-let supabase = null;
+let supabaseClient = null;
 
 function validarConfiguracionSupabase() {
   if (!SUPABASE_URL || SUPABASE_URL.includes('TU_PROYECTO')) {
@@ -43,12 +43,12 @@ async function esperarSupabaseDesdeCDN() {
 }
 
 async function inicializarClienteSupabase() {
-  if (supabase) return supabase;
+  if (supabaseClient) return supabaseClient;
 
   validarConfiguracionSupabase();
   const supabaseCdn = await esperarSupabaseDesdeCDN();
-  supabase = supabaseCdn.createClient(SUPABASE_URL, SUPABASE_KEY);
+  supabaseClient = supabaseCdn.createClient(SUPABASE_URL, SUPABASE_KEY);
 
   console.log('Supabase client inicializado:', SUPABASE_URL);
-  return supabase;
+  return supabaseClient;
 }

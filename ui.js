@@ -108,7 +108,7 @@ function mostrarErrorSupabaseInicial(err) {
 
 function limpiarSuscripcionTiempoReal() {
   if (!AppState.canalRealtime) return;
-  supabase.removeChannel(AppState.canalRealtime);
+  supabaseClient.removeChannel(AppState.canalRealtime);
   AppState.canalRealtime = null;
 }
 
@@ -138,7 +138,7 @@ function iniciarSincronizacionTiempoReal() {
   if (AppState.canalRealtime) return;
 
   const channelName = `calendario-reservas-${Date.now()}`;
-  AppState.canalRealtime = supabase
+  AppState.canalRealtime = supabaseClient
     .channel(channelName)
     .on('postgres_changes', { event: '*', schema: 'public', table: 'reservas' }, () => {
       programarSincronizacionTiempoReal();

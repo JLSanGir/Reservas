@@ -22,7 +22,7 @@ async function obtenerReservasMes(mes, anio) {
   try {
     // Reservas que se solapan con el rango del mes:
     //   fecha_inicio < ultimoDia AND fecha_fin > primerDia
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('reservas')
       .select('*')
       .lt('fecha_inicio', ultimoDia)
@@ -62,7 +62,7 @@ async function obtenerPreciosMes(mes, anio) {
   const hasta = `${anio}-${String(mes).padStart(2, '0')}-${String(totalDias).padStart(2, '0')}`;
 
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('precios_disponibles')
       .select('fecha, precio')
       .gte('fecha', desde)
@@ -117,7 +117,7 @@ async function obtenerDatosMes(mes, anio) {
  */
 async function guardarReserva(datos) {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('reservas')
       .insert({
         fecha_inicio:    datos.fechaInicio,
@@ -176,7 +176,7 @@ async function guardarReserva(datos) {
  */
 async function eliminarReserva(id) {
   try {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseClient
       .from('reservas')
       .delete()
       .eq('id', id)
@@ -206,7 +206,7 @@ async function eliminarReserva(id) {
  */
 async function actualizarPrecioDia(fecha, nuevoPrecio) {
   try {
-    const { error } = await supabase
+    const { error } = await supabaseClient
       .from('precios_disponibles')
       .upsert(
         { fecha, precio: nuevoPrecio },
