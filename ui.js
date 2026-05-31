@@ -553,7 +553,7 @@ function abrirNuevaReserva() {
       <div class="form-grid">
         <div class="form-field">
           <label for="booking-guests">Huéspedes</label>
-          <input id="booking-guests" type="number" min="1" step="1" inputmode="numeric" value="2" required>
+          <input id="booking-guests" type="number" min="1" max="20" step="1" inputmode="numeric" value="2" required>
         </div>
         <div class="form-field">
           <label for="booking-price">Precio total</label>
@@ -643,6 +643,7 @@ function validarReserva(datos) {
   if (!datos.fechaInicio || !datos.fechaFin) return 'Selecciona las fechas de entrada y salida.';
   if (datos.fechaFin <= datos.fechaInicio) return 'La fecha de salida debe ser posterior a la entrada.';
   if (!Number.isInteger(datos.huespedes) || datos.huespedes < 1) return 'Indica al menos 1 huésped.';
+  if (datos.huespedes > 20) return 'Indica un máximo de 20 huéspedes.';
   if (!Number.isFinite(datos.precioTotal) || datos.precioTotal < 0) return 'Introduce un precio total válido.';
   if (!Object.values(OrigenReserva).includes(datos.origen)) return 'Selecciona un origen valido.';
   return '';

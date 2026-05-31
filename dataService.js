@@ -117,23 +117,27 @@ async function obtenerDatosMes(mes, anio) {
  */
 async function guardarReserva(datos) {
   try {
+    const origen = normalizarOrigenReserva(datos.origen);
+    const reservaInsert = {
+      fecha_inicio:   datos.fechaInicio,
+      fecha_fin:      datos.fechaFin,
+      huespedes:      datos.huespedes,
+      precio_total:   datos.precioTotal,
+      nombre_cliente: datos.nombreCliente || '',
+      telefono:       datos.telefono || '',
+      notas:          datos.notas || '',
+      origen,
+    };
+
     const { data, error } = await supabaseClient
       .from('reservas')
-      .insert({
-        fecha_inicio:    datos.fechaInicio,
-        fecha_fin:       datos.fechaFin,
-        huespedes:       datos.huespedes,
-        precio_total:    datos.precioTotal,
-        nombre_cliente:  datos.nombreCliente || '',
-        telefono:        datos.telefono || '',
-        notas:           datos.notas || '',
-        origen:          normalizarOrigenReserva(datos.origen),
-      })
+      .insert(reservaInsert)
       .select()
       .single();
 
     if (error) {
-      // Detectar error de solapamiento (exclusion constraint)
+      console.error("Error de Supabase:", error);
+
       if (error.code === '23P01') {
         console.warn('⚠️ Conflicto: ya existe una reserva en esas fechas.');
         const conflicto = new Error('Las fechas seleccionadas ya están ocupadas.');
@@ -149,7 +153,6 @@ async function guardarReserva(datos) {
 
     console.log('✅ Reserva guardada:', data.id);
 
-    // Retornar como modelo local
     return crearReserva({
       id:            data.id,
       fechaInicio:   data.fecha_inicio,
@@ -161,13 +164,21 @@ async function guardarReserva(datos) {
       notas:         data.notas,
       origen:        data.origen || OrigenReserva.PROPIO,
     });
-  } catch (err) {
-    console.error('❌ Error al guardar reserva:', err.message);
-    // Re-lanzar para que la UI pueda capturar el tipo de error
-    throw err;
+  } catch (error) {
+    console.error("Error de Supabase:", error);
+    console.error('❌ Error al guardar reserva:', error.message);
+    throw error;
   }
 }
-
+function validarReserva(datos) {
+  if (!datos.fechaInicio || !datos.fechaFin) return 'Selecciona las fechas de entrada y salida.';
+  if (datos.fechaFin <= datos.fechaInicio) return 'La fecha de salida debe ser posterior a la entrada.';
+  if (!Number.isInteger(datos.huespedes) || datos.huespedes < 1) return 'Indica al menos 1 huésped.';
+  if (datos.huespedes > 20) return 'Indica un máximo de 20 huéspedes.';
+  if (!Number.isFinite(datos.precioTotal) || datos.precioTotal < 0) return 'Introduce un precio total válido.';
+  if (!Object.values(OrigenReserva).includes(datos.origen)) return 'Selecciona un origen valido.';
+  return '';
+}
 /**
  * Elimina una reserva por su ID.
  *
