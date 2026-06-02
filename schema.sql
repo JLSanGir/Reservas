@@ -57,8 +57,12 @@ ALTER TABLE reservas
 -- ────────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS precios_disponibles (
   fecha   DATE PRIMARY KEY,
-  precio  NUMERIC(8, 2) NOT NULL CHECK (precio >= 0)
+  precio  NUMERIC(8, 2) NOT NULL CHECK (precio >= 0),
+  minimo_noches INTEGER NOT NULL DEFAULT 1 CHECK (minimo_noches >= 1)
 );
+
+ALTER TABLE precios_disponibles
+  ADD COLUMN IF NOT EXISTS minimo_noches INTEGER NOT NULL DEFAULT 1 CHECK (minimo_noches >= 1);
 
 -- ────────────────────────────────────────────────────────────
 -- 4. TRIGGER: Actualizar updated_at automáticamente

@@ -50,11 +50,11 @@ async function obtenerReservasMes(mes, anio) {
 }
 
 /**
- * Obtiene los precios custom para los días de un mes.
+ * Obtiene la configuracion custom para los dias de un mes.
  *
  * @param {number} mes  — 1-12
  * @param {number} anio — e.g. 2026
- * @returns {Promise<Map<string, number>>} Map<'YYYY-MM-DD', precio>
+ * @returns {Promise<{precios: Map<string, number>, minimosNoches: Map<string, number>}>}
  */
 async function obtenerPreciosMes(mes, anio) {
   const totalDias = new Date(anio, mes, 0).getDate();
@@ -64,17 +64,19 @@ async function obtenerPreciosMes(mes, anio) {
   try {
     const { data, error } = await supabaseClient
       .from('precios_disponibles')
-      .select('fecha, precio')
+      .select('fecha, precio, minimo_noches')
       .gte('fecha', desde)
       .lte('fecha', hasta);
 
     if (error) throw error;
 
-    const mapa = new Map();
+    const precios = new Map();
+    const minimosNoches = new Map();
     for (const row of (data || [])) {
-      mapa.set(row.fecha, parseFloat(row.precio));
+      precios.set(row.fecha, parseFloat(row.precio));
+      minimosNoches.set(row.fecha, Number(row.minimo_noches || 1));
     }
-    return mapa;
+    return { precios, minimosNoches };
   } catch (err) {
     console.error('❌ Error al obtener precios:', err.message);
     throw err;
@@ -87,15 +89,19 @@ async function obtenerPreciosMes(mes, anio) {
  *
  * @param {number} mes  — 1-12
  * @param {number} anio — e.g. 2026
- * @returns {Promise<{reservas: Array, precios: Map}>}
+ * @returns {Promise<{reservas: Array, precios: Map, minimosNoches: Map}>}
  */
 async function obtenerDatosMes(mes, anio) {
-  const [reservas, precios] = await Promise.all([
+  const [reservas, configuracionDias] = await Promise.all([
     obtenerReservasMes(mes, anio),
     obtenerPreciosMes(mes, anio),
   ]);
 
-  return { reservas, precios };
+  return {
+    reservas,
+    precios: configuracionDias.precios,
+    minimosNoches: configuracionDias.minimosNoches,
+  };
 }
 
 // ────────────────────────────────────────────────────────────
@@ -264,27 +270,47 @@ async function eliminarReserva(id) {
 }
 
 /**
- * Inserta o actualiza el precio de un día disponible (UPSERT).
+ * Inserta o actualiza el precio y minimo de noches de varios dias disponibles (UPSERT).
  *
- * @param {string} fecha       — 'YYYY-MM-DD'
- * @param {number} nuevoPrecio — Precio en €
+ * @param {string[]} fechas     — Array de fechas 'YYYY-MM-DD'
+ * @param {number} precio       — Precio en €
+ * @param {number} minimoNoches — Estancia minima
  * @returns {Promise<boolean>} true si se guardó correctamente
  */
-async function actualizarPrecioDia(fecha, nuevoPrecio) {
+async function actualizarConfiguracionDias(fechas, precio, minimoNoches) {
   try {
+    if (!Array.isArray(fechas) || fechas.length === 0) {
+      throw new Error('Debe indicarse al menos una fecha.');
+    }
+
+    if (!Number.isFinite(precio) || precio < 0) {
+      throw new Error('El precio debe ser un numero valido.');
+    }
+
+    if (!Number.isInteger(minimoNoches) || minimoNoches < 1) {
+      throw new Error('El minimo de noches debe ser un entero mayor o igual que 1.');
+    }
+
+    const filas = fechas.map(fecha => ({
+      fecha: normalizarFechaParaSupabase(fecha, 'fecha'),
+      precio,
+      minimo_noches: minimoNoches,
+    }));
+
     const { error } = await supabaseClient
       .from('precios_disponibles')
-      .upsert(
-        { fecha, precio: nuevoPrecio },
-        { onConflict: 'fecha' }
-      );
+      .upsert(filas, { onConflict: 'fecha' });
 
     if (error) throw error;
 
-    console.log(`💰 Precio actualizado: ${fecha} → ${nuevoPrecio}€`);
+    console.log(`💰 Configuracion actualizada: ${fechas.length} dia(s)`);
     return true;
   } catch (err) {
-    console.error('❌ Error al actualizar precio:', err.message);
+    console.error('❌ Error al actualizar configuracion:', err.message);
     return false;
   }
+}
+
+async function actualizarPrecioDia(fecha, nuevoPrecio) {
+  return actualizarConfiguracionDias([fecha], nuevoPrecio, 1);
 }

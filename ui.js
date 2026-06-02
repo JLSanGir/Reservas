@@ -13,6 +13,7 @@ const AppState = {
   mesActual: null,                  // MesCalendario generado
   reservas: [],                     // Array de Reserva (mes actual)
   preciosCustom: new Map(),
+  minimosNochesCustom: new Map(),
   cargando: false,                  // Flag de loading
   diaEditando: null,
   guardando: false,
@@ -52,9 +53,10 @@ async function cargarDatosMes() {
   mostrarLoading(true);
 
   try {
-    const { reservas, precios } = await obtenerDatosMes(AppState.mes, AppState.anio);
+    const { reservas, precios, minimosNoches } = await obtenerDatosMes(AppState.mes, AppState.anio);
     AppState.reservas = reservas;
     AppState.preciosCustom = precios;
+    AppState.minimosNochesCustom = minimosNoches;
 
     reservasPorId.clear();
     for (const r of AppState.reservas) {
@@ -588,16 +590,26 @@ async function confirmarEditarReserva(event, reservaId) {
 }
 
 function abrirEditarDia(fecha, precioActual) {
-  AppState.diaEditando = { fecha, precioActual };
+  const minimoActual = AppState.minimosNochesCustom.get(fecha) ?? 1;
+  const fechaFinal = sumarDias(fecha, 1);
+
+  AppState.diaEditando = { fecha, precioActual, minimoActual };
   if (navigator.vibrate) navigator.vibrate(10);
 
   DOM.bottomSheet.innerHTML = `
     <div class="sheet-handle"></div>
     <div class="sheet-title">Editar día</div>
     <form class="sheet-form" id="price-form">
-      <div class="form-field">
-        <label for="day-date">Fecha seleccionada</label>
-        <input id="day-date" type="text" value="${formatearFechaCorta(fecha)}" disabled>
+      <div class="form-grid">
+        <div class="form-field">
+          <label for="day-start">Fecha inicial</label>
+          <input id="day-start" type="date" value="${fecha}" required>
+        </div>
+
+        <div class="form-field">
+          <label for="day-end">Fecha final</label>
+          <input id="day-end" type="date" value="${fechaFinal}" required>
+        </div>
       </div>
 
       <div class="form-field">
@@ -608,42 +620,82 @@ function abrirEditarDia(fecha, precioActual) {
         </div>
       </div>
 
+      <div class="form-field">
+        <label for="day-min-nights">Mínimo de noches</label>
+        <input id="day-min-nights" type="number" min="1" step="1" inputmode="numeric" value="${minimoActual}" required>
+      </div>
+
       <p class="form-error" id="price-form-error" aria-live="polite"></p>
 
-      <button class="primary-action" type="submit">Guardar precio</button>
+      <button class="primary-action" type="submit">Guardar cambios</button>
     </form>`;
 
   abrirBottomSheet();
-  $('#price-form').addEventListener('submit', guardarPrecioDiaSeleccionado);
+  $('#price-form').addEventListener('submit', guardarCambiosRangoSeleccionado);
+  $('#day-start').addEventListener('change', prepararFechaFinalPrecio);
+  prepararFechaFinalPrecio();
   $('#day-price').focus();
 }
 
-async function guardarPrecioDiaSeleccionado(event) {
+function prepararFechaFinalPrecio() {
+  const start = $('#day-start');
+  const end = $('#day-end');
+  if (!start || !end || !start.value) return;
+
+  end.min = start.value;
+  if (!end.value || end.value < start.value) end.value = start.value;
+}
+
+async function guardarCambiosRangoSeleccionado(event) {
   event.preventDefault();
   if (AppState.guardando || !AppState.diaEditando) return;
 
+  const fechaInicio = $('#day-start').value;
+  const fechaFin = $('#day-end').value;
   const precio = Number($('#day-price').value);
+  const minimoNoches = parseInt($('#day-min-nights').value, 10);
   const errorEl = $('#price-form-error');
+
+  if (!fechaInicio || !fechaFin) {
+    errorEl.textContent = 'Selecciona fecha inicial y fecha final.';
+    return;
+  }
+
+  if (fechaFin < fechaInicio) {
+    errorEl.textContent = 'La fecha final no puede ser anterior a la fecha inicial.';
+    return;
+  }
 
   if (!Number.isFinite(precio) || precio < 0) {
     errorEl.textContent = 'Introduce un precio válido.';
     return;
   }
 
+  if (!Number.isInteger(minimoNoches) || minimoNoches < 1) {
+    errorEl.textContent = 'Introduce un mínimo de noches válido.';
+    return;
+  }
+
+  const fechas = obtenerFechasRango(fechaInicio, fechaFin);
+
   AppState.guardando = true;
   setFormBusy('#price-form', true);
 
   try {
-    const ok = await actualizarPrecioDia(AppState.diaEditando.fecha, precio);
-    if (!ok) throw new Error('No se pudo guardar el precio.');
+    const ok = await actualizarConfiguracionDias(fechas, precio, minimoNoches);
+    if (!ok) throw new Error('No se pudieron guardar los cambios.');
 
-    AppState.preciosCustom.set(AppState.diaEditando.fecha, precio);
+    for (const fecha of fechas) {
+      AppState.preciosCustom.set(fecha, precio);
+      AppState.minimosNochesCustom.set(fecha, minimoNoches);
+    }
+    AppState.mesActual = null;
 
     cerrarDetalle();
-    mostrarToast('Precio actualizado');
-    await renderMes();
+    mostrarToast('Cambios actualizados');
+    await renderMes(null, { recargarDatos: false });
   } catch (err) {
-    errorEl.textContent = err.message || 'No se pudo guardar el precio.';
+    errorEl.textContent = err.message || 'No se pudieron guardar los cambios.';
   } finally {
     AppState.guardando = false;
     setFormBusy('#price-form', false);

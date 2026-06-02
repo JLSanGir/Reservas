@@ -32,6 +32,19 @@ function formatoFechaLocal(date) {
   return formatoFecha(date.getFullYear(), date.getMonth() + 1, date.getDate());
 }
 
+function obtenerFechasRango(fechaInicio, fechaFin) {
+  const fechas = [];
+  const cursor = new Date(fechaInicio + 'T00:00:00');
+  const fin = new Date(fechaFin + 'T00:00:00');
+
+  while (cursor <= fin) {
+    fechas.push(formatoFechaLocal(cursor));
+    cursor.setDate(cursor.getDate() + 1);
+  }
+
+  return fechas;
+}
+
 // ------------------------------------------------------------
 // ÍNDICE RÁPIDO DE RESERVAS
 // ------------------------------------------------------------
