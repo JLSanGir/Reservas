@@ -218,6 +218,7 @@ async function renderMes(direction = null, { recargarDatos = true } = {}) {
     AppState.mes,
     AppState.reservas,
     AppState.preciosCustom,
+    AppState.minimosNochesCustom,
   );
 
   const m = AppState.mesActual;
@@ -267,14 +268,17 @@ function renderCeldas(dias) {
     } else if (d.estado === EstadoDia.ALQUILADO) {
       const todayClass = d.fecha === hoyStr ? ' today' : '';
       const originClass = claseOrigenReserva(d.origen);
+      const precioTotal = Number(d.precioTotal || 0).toLocaleString('es-ES');
       html += `
         <div class="day-cell rented ${originClass}${todayClass}"
              style="--delay:${delay}ms"
              data-reserva-id="${d.reservaId}"
              data-origen="${etiquetaOrigenReserva(d.origen)}"
              onclick="abrirDetalle('${d.reservaId}')">
+          <span class="duration-badge" title="Duración total">${d.duracionEstancia}</span>
           <span class="day-number">${d.dia}</span>
           <span class="guest-badge">👥${d.huespedes}</span>
+          ${d.esCheckIn ? `<span class="total-price-badge" title="Precio total">${precioTotal}€</span>` : ''}
         </div>`;
     } else {
       const todayClass = d.fecha === hoyStr ? ' today' : '';
@@ -282,6 +286,7 @@ function renderCeldas(dias) {
         <div class="day-cell available${todayClass}"
              style="--delay:${delay}ms"
              onclick="abrirEditarDia('${d.fecha}', ${d.precioBase})">
+          <span class="min-nights-badge" title="Mínimo de noches">${d.minimoNoches}</span>
           <span class="day-number">${d.dia}</span>
           <span class="day-price">${d.precioBase}€</span>
         </div>`;

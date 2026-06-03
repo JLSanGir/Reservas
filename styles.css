@@ -287,6 +287,35 @@ body::before {
   line-height: 1;
 }
 
+.day-cell .min-nights-badge,
+.day-cell .duration-badge,
+.day-cell .total-price-badge {
+  position: absolute;
+  z-index: 1;
+  font-size: 0.52rem;
+  font-weight: 700;
+  line-height: 1;
+  pointer-events: none;
+}
+
+.day-cell .min-nights-badge,
+.day-cell .duration-badge {
+  top: 4px;
+  left: 4px;
+  min-width: 13px;
+  height: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+}
+
+.day-cell .min-nights-badge {
+  color: var(--text-muted);
+  background: rgba(148, 163, 184, 0.13);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
 /* Rented day */
 .day-cell.rented {
   background: var(--accent-rented-bg);
@@ -332,11 +361,29 @@ body::before {
   font-weight: 700;
 }
 
+.day-cell .duration-badge {
+  color: var(--accent-rented);
+  background: rgba(255, 255, 255, 0.62);
+  border: 1px solid var(--accent-rented-border);
+}
+
 .day-cell .guest-badge {
   font-size: 0.55rem;
   line-height: 1;
   color: var(--accent-rented);
   opacity: 0.85;
+}
+
+.day-cell .total-price-badge {
+  left: 4px;
+  right: 4px;
+  bottom: 4px;
+  color: var(--accent-rented);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  opacity: 0.9;
 }
 
 /* Today marker */

@@ -93,9 +93,13 @@ function crearReserva({
  * @param {number}  params.diaSemana   — 0=Lunes … 6=Domingo (ISO)
  * @param {number}  params.estado      — EstadoDia.DISPONIBLE | EstadoDia.ALQUILADO
  * @param {number}  [params.precioBase]  — Precio base del día (solo si disponible)
+ * @param {number}  [params.minimoNoches] — Estancia mínima (solo si disponible)
  * @param {string}  [params.reservaId]   — ID de la reserva (solo si alquilado)
  * @param {number}  [params.huespedes]   — Huéspedes esa noche (desnormalizado para render rápido)
  * @param {number}  [params.precioNoche] — Precio/noche de la reserva (desnormalizado)
+ * @param {number}  [params.duracionEstancia] — Noches totales de la reserva
+ * @param {number}  [params.precioTotal] — Precio total de la reserva
+ * @param {boolean} [params.esCheckIn]   — true si es el primer día de la reserva
  * @param {boolean} [params.esPadding]   — true si es celda vacía de relleno
  * @returns {Object} DiaCalendario
  */
@@ -105,9 +109,13 @@ function crearDiaCalendario({
   diaSemana  = 0,
   estado     = EstadoDia.DISPONIBLE,
   precioBase = 0,
+  minimoNoches = 1,
   reservaId  = null,
   huespedes  = 0,
   precioNoche = 0,
+  duracionEstancia = 0,
+  precioTotal = 0,
+  esCheckIn = false,
   origen     = OrigenReserva.PROPIO,
   esPadding  = false,
 }) {
@@ -117,9 +125,13 @@ function crearDiaCalendario({
     diaSemana,
     estado,
     precioBase,
+    minimoNoches,
     reservaId,
     huespedes,
     precioNoche,
+    duracionEstancia,
+    precioTotal,
+    esCheckIn,
     origen: normalizarOrigenReserva(origen),
     esPadding,
   });

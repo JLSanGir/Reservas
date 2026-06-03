@@ -89,6 +89,7 @@ function indexarReservasPorFecha(reservas) {
  * @param {number} mes         — Mes 1-12
  * @param {Array}  reservas    — Reservas activas (pueden abarcar varios meses)
  * @param {Map}    [preciosDia] — Map<'YYYY-MM-DD', number> precios custom por día
+ * @param {Map}    [minimosNochesDia] — Map<'YYYY-MM-DD', number> mínimos de noches por día
  * @returns {Object} MesCalendario
  *
  * @example
@@ -96,7 +97,7 @@ function indexarReservasPorFecha(reservas) {
  *   // mayo2026.dias → array de 35 DiaCalendario (5 semanas × 7 días)
  *   // Renderizar en grid de 7 columnas directamente
  */
-function generarMes(anio, mes, reservas = [], preciosDia = new Map()) {
+function generarMes(anio, mes, reservas = [], preciosDia = new Map(), minimosNochesDia = new Map()) {
   const totalDias      = new Date(anio, mes, 0).getDate();
   const primerDiaSemana = jsAIso(new Date(anio, mes - 1, 1).getDay()); // 0=Lun
   const precioDefecto  = precioTemporada(mes);
@@ -134,12 +135,16 @@ function generarMes(anio, mes, reservas = [], preciosDia = new Map()) {
         reservaId:   reserva.id,
         huespedes:   reserva.huespedes,
         precioNoche: reserva.precioNoche,
+        duracionEstancia: reserva.noches,
+        precioTotal: reserva.precioTotal,
+        esCheckIn: fecha === reserva.fechaInicio,
         origen:      reserva.origen,
       }));
     } else {
       // — DÍA DISPONIBLE —
       diasDisponibles++;
       const precio = preciosDia.get(fecha) ?? precioDefecto;
+      const minimoNoches = minimosNochesDia.get(fecha) ?? 1;
 
       dias.push(crearDiaCalendario({
         dia:        d,
@@ -147,6 +152,7 @@ function generarMes(anio, mes, reservas = [], preciosDia = new Map()) {
         diaSemana,
         estado:     EstadoDia.DISPONIBLE,
         precioBase: precio,
+        minimoNoches,
       }));
     }
   }
