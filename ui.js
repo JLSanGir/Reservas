@@ -382,8 +382,10 @@ function cambiarVista(vista) {
     if (DOM.btnNewReservation) DOM.btnNewReservation.classList.add('is-hidden');
     DOM.vistaCalendario.classList.add('is-hidden');
     DOM.vistaLista.classList.remove('is-hidden');
+    DOM.vistaLista.hidden = false;
   } else {
     DOM.vistaLista.classList.add('is-hidden');
+    DOM.vistaLista.hidden = true;
     DOM.vistaCalendario.classList.remove('is-hidden');
     if (DOM.monthHeader) DOM.monthHeader.classList.remove('is-hidden');
     if (DOM.summaryBar) DOM.summaryBar.classList.remove('is-hidden');
