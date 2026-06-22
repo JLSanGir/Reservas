@@ -15,7 +15,7 @@
   <div class="app-container">
 
     <!-- ═══ CABECERA DEL MES ═══ -->
-    <header class="month-header">
+    <header class="month-header" id="month-header">
       <button class="nav-btn" id="btn-prev" aria-label="Mes anterior">
         <span class="material-symbols-rounded">chevron_left</span>
       </button>
@@ -31,7 +31,7 @@
     </header>
 
     <!-- ═══ RESUMEN DEL MES ═══ -->
-    <div class="summary-bar">
+    <div class="summary-bar" id="summary-bar">
       <div class="summary-chip">
         <div class="chip-icon ocupacion">📊</div>
         <div class="chip-data">
@@ -49,15 +49,36 @@
     </div>
 
     <!-- ═══ CALENDARIO ═══ -->
-    <div class="calendar-card">
-      <!-- Cabecera de días de la semana -->
-      <div class="weekday-header">
-        <span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span>
+    <div class="calendar-section" id="vista-calendario">
+      <div class="calendar-card">
+        <!-- Cabecera de días de la semana -->
+        <div class="weekday-header">
+          <span>L</span><span>M</span><span>X</span><span>J</span><span>V</span><span>S</span><span>D</span>
+        </div>
+
+        <!-- Cuadrícula de días (inyectada por JS) -->
+        <div class="calendar-grid" id="calendar-grid"></div>
       </div>
 
-      <!-- Cuadrícula de días (inyectada por JS) -->
-      <div class="calendar-grid" id="calendar-grid"></div>
+      <button class="secondary-view-btn" id="btn-ver-lista-reservas" type="button">
+        Ver Lista de Reservas
+      </button>
     </div>
+
+    <!-- ═══ LISTA DE RESERVAS ═══ -->
+    <section class="reservas-view is-hidden" id="vista-lista" aria-label="Lista de reservas">
+      <div class="reservas-view__header">
+        <button class="nav-btn" id="btn-volver-calendario" type="button" aria-label="Volver al calendario">
+          <span class="material-symbols-rounded">chevron_left</span>
+        </button>
+        <div class="reservas-view__titles">
+          <h2>Lista de Reservas</h2>
+          <p>Control de llaves y limpieza</p>
+        </div>
+      </div>
+
+      <div class="reservas-list" id="lista-reservas"></div>
+    </section>
 
   </div><!-- /.app-container -->
 

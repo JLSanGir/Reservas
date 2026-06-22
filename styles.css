@@ -91,6 +91,10 @@ body::before {
   padding: 16px 12px;
 }
 
+.is-hidden {
+  display: none !important;
+}
+
 /* ── Header / Month Navigation ── */
 .month-header {
   display: flex;
@@ -216,6 +220,137 @@ body::before {
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   box-shadow: var(--shadow-soft);
+}
+
+.calendar-section {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.secondary-view-btn {
+  width: 100%;
+  min-height: 48px;
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.9);
+  color: var(--text-primary);
+  font: inherit;
+  font-weight: 800;
+  cursor: pointer;
+  transition: transform var(--transition-fast), background var(--transition-fast), border-color var(--transition-fast), box-shadow var(--transition-fast);
+  box-shadow: var(--shadow-soft);
+}
+
+.secondary-view-btn:active {
+  transform: scale(0.98);
+  background: var(--accent-available-soft);
+  border-color: rgba(79, 124, 255, 0.28);
+}
+
+.reservas-view {
+  margin-top: 4px;
+}
+
+.reservas-view__header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.reservas-view__titles h2 {
+  font-size: 1.15rem;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+}
+
+.reservas-view__titles p {
+  margin-top: 2px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+}
+
+.reservas-list {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.reserva-row {
+  padding: 14px;
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+  border: 1px solid var(--border-glass);
+  box-shadow: var(--shadow-soft);
+}
+
+.reserva-row__top {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.reserva-row__fecha {
+  font-size: 0.95rem;
+  font-weight: 800;
+  letter-spacing: -0.01em;
+}
+
+.reserva-row__duracion {
+  margin-top: 3px;
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 600;
+}
+
+.reserva-row__meta {
+  color: var(--text-muted);
+  font-size: 0.7rem;
+  word-break: break-all;
+  text-align: right;
+}
+
+.reserva-row__checks {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.task-check {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: var(--radius-md);
+  background: #f8fbff;
+  border: 1px solid var(--border-glass);
+  font-size: 0.9rem;
+  font-weight: 700;
+}
+
+.task-check input {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--accent-available);
+  flex-shrink: 0;
+}
+
+.task-check input:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.list-loading,
+.list-empty {
+  padding: 18px 14px;
+  border-radius: var(--radius-lg);
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px dashed var(--border-glass);
+  color: var(--text-secondary);
+  text-align: center;
+  font-weight: 600;
 }
 
 .weekday-header {

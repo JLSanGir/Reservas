@@ -12,6 +12,8 @@ const AppState = {
   mes: new Date().getMonth() + 1,  // 1-12
   mesActual: null,                  // MesCalendario generado
   reservas: [],                     // Array de Reserva (mes actual)
+  reservasLista: [],                // Array de Reserva (vista lista)
+  vistaActiva: 'calendario',
   preciosCustom: new Map(),
   minimosNochesCustom: new Map(),
   cargando: false,                  // Flag de loading
@@ -105,6 +107,10 @@ function mostrarErrorSupabaseInicial(err) {
     if (btn) btn.disabled = true;
   });
 
+  if (DOM.btnVerListaReservas) {
+    DOM.btnVerListaReservas.disabled = true;
+  }
+
   mostrarToast('Supabase no esta disponible. No se usaran datos locales.');
 }
 
@@ -179,10 +185,17 @@ function cachearDOM() {
   DOM.btnPrev      = $('#btn-prev');
   DOM.btnNext      = $('#btn-next');
   DOM.btnNewReservation = $('#btn-new-reservation');
+  DOM.btnVerListaReservas = $('#btn-ver-lista-reservas');
+  DOM.btnVolverCalendario = $('#btn-volver-calendario');
+  DOM.monthHeader = $('#month-header');
+  DOM.summaryBar = $('#summary-bar');
   DOM.toast        = $('#toast');
   DOM.ocupacion    = $('#val-ocupacion');
   DOM.ingresos     = $('#val-ingresos');
   DOM.calendarGrid = $('#calendar-grid');
+  DOM.vistaCalendario = $('#vista-calendario');
+  DOM.vistaLista = $('#vista-lista');
+  DOM.listaReservas = $('#lista-reservas');
   DOM.overlay      = $('#overlay');
   DOM.bottomSheet  = $('#bottom-sheet');
   DOM.sheetResId   = $('#sheet-res-id');
@@ -349,6 +362,132 @@ function escaparHtml(valor) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#39;');
+}
+
+function formatearFechaLarga(fechaStr) {
+  const fecha = new Date(`${fechaStr}T00:00:00`);
+  return new Intl.DateTimeFormat('es-ES', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+  }).format(fecha);
+}
+
+function cambiarVista(vista) {
+  AppState.vistaActiva = vista;
+
+  if (vista === 'lista') {
+    if (DOM.monthHeader) DOM.monthHeader.classList.add('is-hidden');
+    if (DOM.summaryBar) DOM.summaryBar.classList.add('is-hidden');
+    if (DOM.btnNewReservation) DOM.btnNewReservation.classList.add('is-hidden');
+    DOM.vistaCalendario.classList.add('is-hidden');
+    DOM.vistaLista.classList.remove('is-hidden');
+  } else {
+    DOM.vistaLista.classList.add('is-hidden');
+    DOM.vistaCalendario.classList.remove('is-hidden');
+    if (DOM.monthHeader) DOM.monthHeader.classList.remove('is-hidden');
+    if (DOM.summaryBar) DOM.summaryBar.classList.remove('is-hidden');
+    if (DOM.btnNewReservation) DOM.btnNewReservation.classList.remove('is-hidden');
+  }
+}
+
+async function abrirVistaListaReservas() {
+  cambiarVista('lista');
+
+  if (!AppState.reservasLista.length) {
+    DOM.listaReservas.innerHTML = '<div class="list-loading">Cargando reservas...</div>';
+
+    try {
+      AppState.reservasLista = await obtenerTodasLasReservas();
+    } catch (err) {
+      DOM.listaReservas.innerHTML = '<div class="list-empty">No se pudieron cargar las reservas.</div>';
+      mostrarToast('No se pudo cargar la lista de reservas.');
+      return;
+    }
+  }
+
+  renderListaReservas();
+}
+
+function volverAlCalendario() {
+  cambiarVista('calendario');
+}
+
+function renderListaReservas() {
+  if (!DOM.listaReservas) return;
+
+  if (!AppState.reservasLista.length) {
+    DOM.listaReservas.innerHTML = '<div class="list-empty">No hay reservas para mostrar.</div>';
+    return;
+  }
+
+  DOM.listaReservas.innerHTML = AppState.reservasLista.map((r) => `
+    <article class="reserva-row" data-reserva-id="${r.id}">
+      <div class="reserva-row__top">
+        <div>
+          <div class="reserva-row__fecha">${escaparHtml(formatearFechaLarga(r.fechaInicio))}</div>
+          <div class="reserva-row__duracion">${r.noches} noche${r.noches !== 1 ? 's' : ''} · ${escaparHtml(formatearFechaCorta(r.fechaInicio))} → ${escaparHtml(formatearFechaCorta(r.fechaFin))}</div>
+        </div>
+        <div class="reserva-row__meta">${escaparHtml(r.nombreCliente || 'Sin nombre')}</div>
+      </div>
+
+      <div class="reserva-row__checks">
+        <label class="task-check">
+          <input type="checkbox" data-reserva-id="${r.id}" data-campo="llaves_entregadas" ${r.llavesEntregadas ? 'checked' : ''}>
+          <span>Llaves</span>
+        </label>
+
+        <label class="task-check">
+          <input type="checkbox" data-reserva-id="${r.id}" data-campo="limpieza_hecha" ${r.limpiezaHecha ? 'checked' : ''}>
+          <span>Limpieza</span>
+        </label>
+      </div>
+    </article>
+  `).join('');
+}
+
+function actualizarReservaEnLista(reservaId, campo, valor) {
+  AppState.reservasLista = AppState.reservasLista.map((reserva) => {
+    if (reserva.id !== reservaId) return reserva;
+
+    return {
+      ...reserva,
+      [campo === 'llaves_entregadas' ? 'llavesEntregadas' : 'limpiezaHecha']: valor,
+    };
+  });
+}
+
+function inicializarListaReservas() {
+  if (DOM.btnVerListaReservas) {
+    DOM.btnVerListaReservas.addEventListener('click', abrirVistaListaReservas);
+  }
+
+  if (DOM.btnVolverCalendario) {
+    DOM.btnVolverCalendario.addEventListener('click', volverAlCalendario);
+  }
+
+  if (!DOM.listaReservas) return;
+
+  DOM.listaReservas.addEventListener('change', async (event) => {
+    const input = event.target;
+    if (!input.matches('input[type="checkbox"][data-reserva-id][data-campo]')) return;
+
+    const reservaId = input.dataset.reservaId;
+    const campo = input.dataset.campo;
+    const valor = input.checked;
+
+    input.disabled = true;
+
+    try {
+      await actualizarEstadoTareaReserva(reservaId, campo, valor);
+      actualizarReservaEnLista(reservaId, campo, valor);
+    } catch (err) {
+      input.checked = !valor;
+      mostrarToast('No se pudo guardar el cambio.');
+    } finally {
+      input.disabled = false;
+    }
+  });
 }
 
 // ------------------------------------------------------------
@@ -917,6 +1056,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   DOM.btnNext.addEventListener('click', irMesSiguiente);
   DOM.btnNewReservation.addEventListener('click', abrirNuevaReserva);
   DOM.overlay.addEventListener('click', cerrarDetalle);
+  inicializarListaReservas();
 });
 
 window.addEventListener('beforeunload', limpiarSuscripcionTiempoReal);

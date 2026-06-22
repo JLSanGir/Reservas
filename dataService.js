@@ -42,9 +42,45 @@ async function obtenerReservasMes(mes, anio) {
       telefono:       row.telefono || '',
       notas:          row.notas || '',
       origen:         row.origen || OrigenReserva.PROPIO,
+      llavesEntregadas: row.llaves_entregadas,
+      limpiezaHecha: row.limpieza_hecha,
     }));
   } catch (err) {
     console.error('❌ Error al obtener reservas:', err.message);
+    throw err;
+  }
+}
+
+/**
+ * Obtiene todas las reservas ordenadas por fecha de inicio.
+ * Se usa en la pantalla de lista de reservas.
+ *
+ * @returns {Promise<Array>} Array de objetos Reserva
+ */
+async function obtenerTodasLasReservas() {
+  try {
+    const { data, error } = await supabaseClient
+      .from('reservas')
+      .select('*')
+      .order('fecha_inicio', { ascending: true });
+
+    if (error) throw error;
+
+    return (data || []).map(row => crearReserva({
+      id:             row.id,
+      fechaInicio:    row.fecha_inicio,
+      fechaFin:       row.fecha_fin,
+      huespedes:      row.huespedes,
+      precioTotal:    parseFloat(row.precio_total),
+      nombreCliente:  row.nombre_cliente || '',
+      telefono:       row.telefono || '',
+      notas:          row.notas || '',
+      origen:         row.origen || OrigenReserva.PROPIO,
+      llavesEntregadas: row.llaves_entregadas,
+      limpiezaHecha: row.limpieza_hecha,
+    }));
+  } catch (err) {
+    console.error('❌ Error al obtener todas las reservas:', err.message);
     throw err;
   }
 }
@@ -154,6 +190,8 @@ function crearReservaDesdeFila(data) {
     telefono:      data.telefono,
     notas:         data.notas,
     origen:        data.origen || OrigenReserva.PROPIO,
+    llavesEntregadas: data.llaves_entregadas,
+    limpiezaHecha: data.limpieza_hecha,
   });
 }
 
@@ -313,4 +351,40 @@ async function actualizarConfiguracionDias(fechas, precio, minimoNoches) {
 
 async function actualizarPrecioDia(fecha, nuevoPrecio) {
   return actualizarConfiguracionDias([fecha], nuevoPrecio, 1);
+}
+
+/**
+ * Actualiza un campo booleano de control de una reserva.
+ *
+ * @param {string} id
+ * @param {'llaves_entregadas'|'limpieza_hecha'} campo
+ * @param {boolean} valor
+ * @returns {Promise<Object>} fila actualizada
+ */
+async function actualizarEstadoTareaReserva(id, campo, valor) {
+  if (!['llaves_entregadas', 'limpieza_hecha'].includes(campo)) {
+    throw new Error(`Campo de tarea invalido: ${campo}`);
+  }
+
+  const payload = {};
+  payload[campo] = Boolean(valor);
+
+  try {
+    const { data, error } = await supabaseClient
+      .from('reservas')
+      .update(payload)
+      .eq('id', id)
+      .select('*')
+      .single();
+
+    if (error) throw error;
+    if (!data || !data.id) {
+      throw new Error('Supabase no devolvió la reserva actualizada.');
+    }
+
+    return data;
+  } catch (err) {
+    console.error('❌ Error actualizando estado de tarea:', err.message);
+    throw err;
+  }
 }

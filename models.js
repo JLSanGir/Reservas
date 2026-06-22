@@ -54,6 +54,8 @@ function crearReserva({
   telefono = '',
   notas = '',
   origen = OrigenReserva.PROPIO,
+  llavesEntregadas = false,
+  limpiezaHecha = false,
 }) {
   // Cálculo de noches
   const inicio = new Date(fechaInicio + 'T00:00:00');
@@ -72,6 +74,8 @@ function crearReserva({
     telefono,
     notas,
     origen: normalizarOrigenReserva(origen),
+    llavesEntregadas: Boolean(llavesEntregadas),
+    limpiezaHecha: Boolean(limpiezaHecha),
   });
 }
 

@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS reservas (
   telefono       TEXT DEFAULT '',
   notas          TEXT DEFAULT '',
   origen         TEXT NOT NULL DEFAULT 'PROPIO' CHECK (origen IN ('BOOKING', 'AIRBNB', 'PROPIO', 'OTROS')),
+  llaves_entregadas BOOLEAN NOT NULL DEFAULT FALSE,
+  limpieza_hecha    BOOLEAN NOT NULL DEFAULT FALSE,
   created_at     TIMESTAMPTZ DEFAULT now(),
   updated_at     TIMESTAMPTZ DEFAULT now(),
 
@@ -27,6 +29,12 @@ CREATE TABLE IF NOT EXISTS reservas (
 ALTER TABLE reservas
   ADD COLUMN IF NOT EXISTS origen TEXT NOT NULL DEFAULT 'PROPIO'
   CHECK (origen IN ('BOOKING', 'AIRBNB', 'PROPIO', 'OTROS'));
+
+ALTER TABLE reservas
+  ADD COLUMN IF NOT EXISTS llaves_entregadas BOOLEAN NOT NULL DEFAULT FALSE;
+
+ALTER TABLE reservas
+  ADD COLUMN IF NOT EXISTS limpieza_hecha BOOLEAN NOT NULL DEFAULT FALSE;
 
 CREATE INDEX idx_reservas_fechas
   ON reservas USING GIST (daterange(fecha_inicio, fecha_fin));
